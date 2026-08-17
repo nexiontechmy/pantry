@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -5,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:http/http.dart' as http;
+import 'package:google_sign_in/google_sign_in.dart';
 
 void main() => runApp(const PantryApp());
 
@@ -164,6 +166,29 @@ const Map<String, Map<String, String>> kTr = {
   'snackBackupCopied': {'en': 'Backup copied to clipboard — paste it somewhere safe.', 'zh': '备份已复制到剪贴板 —— 请粘贴到安全的地方保存。', 'ms': 'Sandaran disalin ke papan keratan — tampal di tempat yang selamat.'},
   'snackImported': {'en': 'Imported', 'zh': '已导入', 'ms': 'Diimport'},
   'snackInvalidBackup': {'en': "That doesn't look like valid backup JSON", 'zh': '这似乎不是有效的备份 JSON', 'ms': 'Itu bukan JSON sandaran yang sah'},
+  'menuSheets': {'en': 'Google Sheets sync', 'zh': '同步到 Google 表格', 'ms': 'Segerak Google Sheets'},
+  'titleSheets': {'en': 'Google Sheets sync', 'zh': 'Google 表格同步', 'ms': 'Penyegerakan Google Sheets'},
+  'sheetsNotSignedIn': {'en': 'Not connected', 'zh': '尚未连接', 'ms': 'Belum disambungkan'},
+  'sheetsSignedInAs': {'en': 'Signed in as', 'zh': '已登录：', 'ms': 'Log masuk sebagai'},
+  'btnSignIn': {'en': 'Connect Google account', 'zh': '连接 Google 账号', 'ms': 'Sambung akaun Google'},
+  'btnSignOut': {'en': 'Disconnect', 'zh': '断开连接', 'ms': 'Putuskan sambungan'},
+  'sheetsNoSpreadsheet': {'en': 'No spreadsheet linked yet.', 'zh': '尚未关联表格。', 'ms': 'Belum ada hamparan dipautkan.'},
+  'btnCreateSheet': {'en': 'Create new spreadsheet', 'zh': '创建新表格', 'ms': 'Cipta hamparan baharu'},
+  'btnUseExisting': {'en': 'Use existing spreadsheet', 'zh': '使用现有表格', 'ms': 'Guna hamparan sedia ada'},
+  'hintSheetUrl': {'en': 'Paste spreadsheet URL or ID', 'zh': '粘贴表格网址或 ID', 'ms': 'Tampal URL atau ID hamparan'},
+  'sheetsLinked': {'en': 'Linked spreadsheet', 'zh': '已关联表格', 'ms': 'Hamparan dipautkan'},
+  'btnCopyLink': {'en': 'Copy link', 'zh': '复制链接', 'ms': 'Salin pautan'},
+  'linkCopied': {'en': 'Link copied to clipboard', 'zh': '链接已复制到剪贴板', 'ms': 'Pautan disalin ke papan keratan'},
+  'btnPushNow': {'en': 'Push to Sheets', 'zh': '推送到表格', 'ms': 'Tolak ke Sheets'},
+  'btnPullNow': {'en': 'Pull from Sheets', 'zh': '从表格拉取', 'ms': 'Tarik dari Sheets'},
+  'sheetsLastSync': {'en': 'Last synced', 'zh': '上次同步', 'ms': 'Segerak terakhir'},
+  'sheetsNever': {'en': 'never', 'zh': '从未', 'ms': 'tiada'},
+  'dlgPullTitle': {'en': 'Pull from Sheets?', 'zh': '从表格拉取？', 'ms': 'Tarik dari Sheets?'},
+  'dlgPullBody': {'en': 'This replaces your current inventory with what\'s in the spreadsheet. Any local changes not yet pushed will be lost.', 'zh': '这将用表格中的数据替换当前库存。尚未推送的本地更改将丢失。', 'ms': 'Ini akan menggantikan inventori semasa anda dengan kandungan hamparan. Sebarang perubahan tempatan yang belum ditolak akan hilang.'},
+  'sheetsPushOk': {'en': 'Pushed to Google Sheets', 'zh': '已推送到 Google 表格', 'ms': 'Berjaya ditolak ke Google Sheets'},
+  'sheetsPullOk': {'en': 'Pulled from Google Sheets', 'zh': '已从 Google 表格拉取', 'ms': 'Berjaya ditarik dari Google Sheets'},
+  'sheetsError': {'en': 'Sync error', 'zh': '同步出错', 'ms': 'Ralat penyegerakan'},
+  'sheetsAutoSyncNote': {'en': 'While connected, changes you make here push to Sheets automatically. Use "Pull" to fetch edits made directly in Sheets.', 'zh': '连接后，您在此处所做的更改会自动推送到表格。使用"拉取"以获取直接在表格中所做的编辑。', 'ms': 'Semasa disambungkan, perubahan yang anda buat di sini ditolak secara automatik ke Sheets. Guna "Tarik" untuk mendapatkan suntingan yang dibuat terus dalam Sheets.'},
 };
 
 class PantryItem {
@@ -266,6 +291,110 @@ class PurchaseRecord {
 }
 
 // ---------------------------------------------------------------------------
+// Google Sheets sync (manual push/pull over the Sheets v4 REST API).
+String? extractSpreadsheetId(String input) {
+  final s = input.trim();
+  if (s.isEmpty) return null;
+  final m = RegExp(r'/spreadsheets/d/([a-zA-Z0-9-_]+)').firstMatch(s);
+  if (m != null) return m.group(1);
+  if (RegExp(r'^[a-zA-Z0-9-_]+$').hasMatch(s)) return s;
+  return null;
+}
+
+class SheetsService {
+  static const _scopes = ['https://www.googleapis.com/auth/spreadsheets'];
+  final GoogleSignIn _google = GoogleSignIn(scopes: _scopes);
+  GoogleSignInAccount? account;
+
+  Future<GoogleSignInAccount?> signInSilently() async {
+    try {
+      account = await _google.signInSilently();
+    } catch (_) {}
+    return account;
+  }
+
+  Future<GoogleSignInAccount?> signIn() async {
+    account = await _google.signIn();
+    return account;
+  }
+
+  Future<void> signOut() async {
+    await _google.signOut();
+    account = null;
+  }
+
+  Future<Map<String, String>> _headers() async {
+    final acc = account;
+    if (acc == null) throw Exception('Not signed in');
+    final h = await acc.authHeaders;
+    return {...h, 'Content-Type': 'application/json'};
+  }
+
+  Future<String> createSpreadsheet(String title) async {
+    final res = await http.post(
+      Uri.parse('https://sheets.googleapis.com/v4/spreadsheets'),
+      headers: await _headers(),
+      body: jsonEncode({
+        'properties': {'title': title},
+        'sheets': [
+          {'properties': {'title': 'Inventory'}},
+        ],
+      }),
+    );
+    if (res.statusCode != 200) throw Exception('${res.statusCode}: ${res.body}');
+    return (jsonDecode(res.body) as Map)['spreadsheetId'] as String;
+  }
+
+  Future<void> pushInventory(String spreadsheetId, List<PantryItem> items) async {
+    final headers = await _headers();
+    final rows = <List<dynamic>>[
+      ['Name', 'Category', 'Qty', 'Status', 'Price', 'Expiry', 'Location', 'Barcode'],
+      ...items.map((it) => [
+            it.name, it.cat, it.qty, it.status, it.price,
+            it.exp?.toIso8601String().substring(0, 10) ?? '',
+            it.location, it.barcode ?? '',
+          ]),
+    ];
+    await http.post(
+      Uri.parse('https://sheets.googleapis.com/v4/spreadsheets/$spreadsheetId/values/Inventory!A1:H10000:clear'),
+      headers: headers,
+    );
+    final res = await http.put(
+      Uri.parse('https://sheets.googleapis.com/v4/spreadsheets/$spreadsheetId/values/Inventory!A1?valueInputOption=RAW'),
+      headers: headers,
+      body: jsonEncode({'values': rows}),
+    );
+    if (res.statusCode != 200) throw Exception('${res.statusCode}: ${res.body}');
+  }
+
+  Future<List<PantryItem>> pullInventory(String spreadsheetId, String Function() genId) async {
+    final headers = await _headers();
+    final res = await http.get(
+      Uri.parse('https://sheets.googleapis.com/v4/spreadsheets/$spreadsheetId/values/Inventory!A2:H10000'),
+      headers: headers,
+    );
+    if (res.statusCode != 200) throw Exception('${res.statusCode}: ${res.body}');
+    final values = ((jsonDecode(res.body) as Map)['values'] as List?) ?? [];
+    return values
+        .where((r) => r is List && r.isNotEmpty && r[0].toString().trim().isNotEmpty)
+        .map<PantryItem>((r) {
+      final row = List<String>.generate(8, (i) => i < (r as List).length ? r[i].toString() : '');
+      return PantryItem(
+        id: genId(),
+        name: row[0],
+        cat: kCats.contains(row[1]) ? row[1] : 'Other',
+        qty: int.tryParse(row[2]) ?? 1,
+        status: ['ok', 'low', 'out'].contains(row[3]) ? row[3] : 'ok',
+        price: double.tryParse(row[4]) ?? 0,
+        exp: row[5].isEmpty ? null : DateTime.tryParse(row[5]),
+        location: row[6],
+        barcode: row[7].isEmpty ? null : row[7],
+      );
+    }).toList();
+  }
+}
+
+// ---------------------------------------------------------------------------
 class PantryApp extends StatefulWidget {
   const PantryApp({super.key});
   @override
@@ -343,6 +472,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   List<PurchaseRecord> _purchases = [];
   Map<String, String> _barcodeMap = {};
   String _currency = 'MYR';
+  final SheetsService _sheets = SheetsService();
+  String? _spreadsheetId;
+  DateTime? _lastSync;
+  Timer? _syncDebounce;
   late TabController _tab;
 
   final _nameCtrl = TextEditingController();
@@ -366,10 +499,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     super.initState();
     _tab = TabController(length: 3, vsync: this)..addListener(() => setState(() {}));
     _load();
+    _sheets.signInSilently().then((_) { if (mounted) setState(() {}); });
   }
 
   @override
   void dispose() {
+    _syncDebounce?.cancel();
     _tab.dispose();
     _nameCtrl.dispose();
     _qtyCtrl.dispose();
@@ -387,6 +522,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     final bc = p.getString('pantry.barcodeMap');
     final cur = p.getString('pantry.currency');
     final lang = p.getString('pantry.lang');
+    final sheetId = p.getString('pantry.sheetId');
+    final lastSync = p.getString('pantry.lastSync');
     setState(() {
       if (raw != null) {
         try {
@@ -416,6 +553,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       }
       if (cur != null && cur.isNotEmpty) _currency = cur;
       if (lang != null && kLangs.contains(lang)) gLang = lang;
+      if (sheetId != null && sheetId.isNotEmpty) _spreadsheetId = sheetId;
+      if (lastSync != null) _lastSync = DateTime.tryParse(lastSync);
     });
   }
 
@@ -428,6 +567,26 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     p.setString('pantry.barcodeMap', jsonEncode(_barcodeMap));
     p.setString('pantry.currency', _currency);
     p.setString('pantry.lang', gLang);
+    if (_spreadsheetId != null) p.setString('pantry.sheetId', _spreadsheetId!);
+    _scheduleSync();
+  }
+
+  void _scheduleSync() {
+    if (_sheets.account == null || _spreadsheetId == null) return;
+    _syncDebounce?.cancel();
+    _syncDebounce = Timer(const Duration(seconds: 2), () async {
+      try {
+        await _sheets.pushInventory(_spreadsheetId!, _items);
+        await _setLastSync();
+      } catch (_) {}
+    });
+  }
+
+  Future<void> _setLastSync() async {
+    final now = DateTime.now();
+    final p = await SharedPreferences.getInstance();
+    await p.setString('pantry.lastSync', now.toIso8601String());
+    if (mounted) setState(() => _lastSync = now);
   }
 
   Future<void> _pickLanguage() async {
@@ -681,27 +840,26 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
 
   void _dataMenu() {
-    showModalBottomSheet(
-      context: context,
-      builder: (_) => SafeArea(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => Scaffold(
+        appBar: AppBar(title: Text(tr('tipData'))),
+        body: ListView(children: [
           ListTile(leading: const Icon(Icons.copy_all), title: Text(tr('menuCopyBackup')),
-              onTap: () { Navigator.pop(context); _export(); }),
+              onTap: _export),
           ListTile(leading: const Icon(Icons.content_paste), title: Text(tr('menuImportBackup')),
-              onTap: () { Navigator.pop(context); _import(); }),
+              onTap: _import),
           ListTile(leading: const Icon(Icons.refresh), title: Text(tr('menuRestock')),
-              onTap: () { Navigator.pop(context); _restockBought(); }),
+              onTap: _restockBought),
           ListTile(leading: const Icon(Icons.place_outlined), title: Text(tr('menuManageLocations')),
-              onTap: () { Navigator.pop(context); _manageLocations(); }),
+              onTap: _manageLocations),
           ListTile(leading: const Icon(Icons.payments_outlined), title: Text(tr('menuCurrency')),
               subtitle: Text('$_currency ($_sym)'),
-              onTap: () { Navigator.pop(context); _pickCurrency(); }),
+              onTap: _pickCurrency),
           ListTile(leading: const Icon(Icons.language), title: Text(tr('menuLanguage')),
               subtitle: Text(kLangNames[gLang]!),
-              onTap: () { Navigator.pop(context); _pickLanguage(); }),
+              onTap: _pickLanguage),
           ListTile(leading: const Icon(Icons.receipt_long_outlined), title: Text(tr('titlePurchaseHistory')),
               onTap: () {
-                Navigator.pop(context);
                 Navigator.of(context).push(MaterialPageRoute(
                     builder: (_) => PurchaseHistoryPage(
                       purchases: _purchases,
@@ -710,12 +868,29 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                       onEdit: _editPurchase,
                     )));
               }),
+          ListTile(leading: const Icon(Icons.cloud_sync_outlined), title: Text(tr('menuSheets')),
+              subtitle: Text(_sheets.account?.email ?? tr('sheetsNotSignedIn'),
+                  overflow: TextOverflow.ellipsis),
+              onTap: () {
+                Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => SheetsSyncPage(
+                      sheets: _sheets,
+                      spreadsheetId: _spreadsheetId,
+                      lastSync: _lastSync,
+                      items: _items,
+                      genId: _uid,
+                      onLinked: (id) { setState(() => _spreadsheetId = id); _persist(); },
+                      onSynced: _setLastSync,
+                      onPulled: (list) { setState(() => _items = list); _persist(); },
+                      onSignedOut: () { setState(() {}); },
+                    )));
+              }),
           ListTile(leading: const Icon(Icons.delete_outline, color: kDanger),
               title: Text(tr('menuDeleteAll')),
-              onTap: () { Navigator.pop(context); _confirmClear(); }),
+              onTap: _confirmClear),
         ]),
       ),
-    );
+    ));
   }
 
   Future<String?> _addLocationDialog() async {
@@ -1649,6 +1824,233 @@ class _PurchaseHistoryPageState extends State<PurchaseHistoryPage> {
                 );
               },
             ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+class SheetsSyncPage extends StatefulWidget {
+  final SheetsService sheets;
+  final String? spreadsheetId;
+  final DateTime? lastSync;
+  final List<PantryItem> items;
+  final String Function() genId;
+  final void Function(String id) onLinked;
+  final Future<void> Function() onSynced;
+  final void Function(List<PantryItem> items) onPulled;
+  final VoidCallback onSignedOut;
+
+  const SheetsSyncPage({
+    super.key,
+    required this.sheets,
+    required this.spreadsheetId,
+    required this.lastSync,
+    required this.items,
+    required this.genId,
+    required this.onLinked,
+    required this.onSynced,
+    required this.onPulled,
+    required this.onSignedOut,
+  });
+
+  @override
+  State<SheetsSyncPage> createState() => _SheetsSyncPageState();
+}
+
+class _SheetsSyncPageState extends State<SheetsSyncPage> {
+  bool _busy = false;
+  String? _spreadsheetId;
+  DateTime? _lastSync;
+
+  @override
+  void initState() {
+    super.initState();
+    _spreadsheetId = widget.spreadsheetId;
+    _lastSync = widget.lastSync;
+  }
+
+  void _snack(String m) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
+
+  Future<void> _signIn() async {
+    setState(() => _busy = true);
+    try {
+      await widget.sheets.signIn();
+    } catch (e) {
+      _snack('${tr('sheetsError')}: $e');
+    }
+    setState(() => _busy = false);
+  }
+
+  Future<void> _signOut() async {
+    await widget.sheets.signOut();
+    widget.onSignedOut();
+    setState(() {});
+  }
+
+  Future<void> _createSheet() async {
+    setState(() => _busy = true);
+    try {
+      final id = await widget.sheets.createSpreadsheet('Pantry Inventory');
+      widget.onLinked(id);
+      setState(() => _spreadsheetId = id);
+      await _push();
+    } catch (e) {
+      _snack('${tr('sheetsError')}: $e');
+    }
+    setState(() => _busy = false);
+  }
+
+  Future<void> _useExisting() async {
+    final ctrl = TextEditingController();
+    final url = await showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(tr('btnUseExisting')),
+        content: TextField(controller: ctrl, decoration: InputDecoration(hintText: tr('hintSheetUrl'))),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('btnCancel'))),
+          TextButton(onPressed: () => Navigator.pop(context, ctrl.text.trim()), child: Text(tr('btnAdd'))),
+        ],
+      ),
+    );
+    if (url == null || url.isEmpty) return;
+    final id = extractSpreadsheetId(url);
+    if (id == null) {
+      _snack(tr('sheetsError'));
+      return;
+    }
+    widget.onLinked(id);
+    setState(() => _spreadsheetId = id);
+  }
+
+  Future<void> _push() async {
+    if (_spreadsheetId == null) return;
+    setState(() => _busy = true);
+    try {
+      await widget.sheets.pushInventory(_spreadsheetId!, widget.items);
+      await widget.onSynced();
+      setState(() => _lastSync = DateTime.now());
+      _snack(tr('sheetsPushOk'));
+    } catch (e) {
+      _snack('${tr('sheetsError')}: $e');
+    }
+    setState(() => _busy = false);
+  }
+
+  Future<void> _pull() async {
+    if (_spreadsheetId == null) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(tr('dlgPullTitle')),
+        content: Text(tr('dlgPullBody')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(tr('btnCancel'))),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(tr('btnPullNow'))),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    setState(() => _busy = true);
+    try {
+      final list = await widget.sheets.pullInventory(_spreadsheetId!, widget.genId);
+      widget.onPulled(list);
+      await widget.onSynced();
+      setState(() => _lastSync = DateTime.now());
+      _snack(tr('sheetsPullOk'));
+    } catch (e) {
+      _snack('${tr('sheetsError')}: $e');
+    }
+    setState(() => _busy = false);
+  }
+
+  Future<void> _copyLink() async {
+    await Clipboard.setData(ClipboardData(text: 'https://docs.google.com/spreadsheets/d/$_spreadsheetId'));
+    _snack(tr('linkCopied'));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final acc = widget.sheets.account;
+    return Scaffold(
+      appBar: AppBar(title: Text(tr('titleSheets'))),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(acc == null ? tr('sheetsNotSignedIn') : '${tr('sheetsSignedInAs')} ${acc.email}',
+                    style: const TextStyle(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 10),
+                if (acc == null)
+                  FilledButton.icon(
+                    onPressed: _busy ? null : _signIn,
+                    icon: const Icon(Icons.login),
+                    label: Text(tr('btnSignIn')),
+                  )
+                else
+                  OutlinedButton.icon(
+                    onPressed: _busy ? null : _signOut,
+                    icon: const Icon(Icons.logout),
+                    label: Text(tr('btnSignOut')),
+                  ),
+              ]),
+            ),
+          ),
+          if (acc != null) ...[
+            const SizedBox(height: 12),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(_spreadsheetId == null ? tr('sheetsNoSpreadsheet') : tr('sheetsLinked'),
+                      style: const TextStyle(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 10),
+                  if (_spreadsheetId == null)
+                    Wrap(spacing: 8, runSpacing: 8, children: [
+                      FilledButton.icon(
+                        onPressed: _busy ? null : _createSheet,
+                        icon: const Icon(Icons.add),
+                        label: Text(tr('btnCreateSheet')),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: _busy ? null : _useExisting,
+                        icon: const Icon(Icons.link),
+                        label: Text(tr('btnUseExisting')),
+                      ),
+                    ])
+                  else ...[
+                    SelectableText('https://docs.google.com/spreadsheets/d/$_spreadsheetId',
+                        style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor)),
+                    const SizedBox(height: 8),
+                    Wrap(spacing: 8, runSpacing: 8, children: [
+                      OutlinedButton.icon(onPressed: _copyLink, icon: const Icon(Icons.copy), label: Text(tr('btnCopyLink'))),
+                      FilledButton.icon(
+                        onPressed: _busy ? null : _push,
+                        icon: const Icon(Icons.upload),
+                        label: Text(tr('btnPushNow')),
+                      ),
+                      FilledButton.icon(
+                        onPressed: _busy ? null : _pull,
+                        icon: const Icon(Icons.download),
+                        label: Text(tr('btnPullNow')),
+                      ),
+                    ]),
+                    const SizedBox(height: 10),
+                    Text('${tr('sheetsLastSync')}: ${_lastSync == null ? tr('sheetsNever') : _lastSync.toString().substring(0, 16)}',
+                        style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor)),
+                  ],
+                ]),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(tr('sheetsAutoSyncNote'), style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor)),
+          ],
+          if (_busy) const Padding(padding: EdgeInsets.only(top: 16), child: Center(child: CircularProgressIndicator())),
+        ],
+      ),
     );
   }
 }
