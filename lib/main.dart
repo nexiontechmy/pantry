@@ -1,12 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:http/http.dart' as http;
-import 'package:google_sign_in/google_sign_in.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 
 void main() => runApp(const PantryApp());
 
@@ -16,6 +18,7 @@ const List<String> kCats = [
   'Toiletries', 'Cleaning Supplies', 'Personal Care',
   'Household', 'Other'
 ];
+const List<String> kUnits = ['pcs', 'g', 'kg', 'ml', 'L', 'pack', 'box', 'bottle', 'can'];
 const List<String> kDefaultLocations = [
   'Kitchen Fridge', 'Kitchen Freezer', 'Kitchen Pantry',
   'Bathroom Cabinet', 'Laundry Room', 'Garage Storage',
@@ -181,6 +184,7 @@ const Map<String, Map<String, String>> kTr = {
   'linkCopied': {'en': 'Link copied to clipboard', 'zh': '链接已复制到剪贴板', 'ms': 'Pautan disalin ke papan keratan'},
   'btnPushNow': {'en': 'Push to Sheets', 'zh': '推送到表格', 'ms': 'Tolak ke Sheets'},
   'btnPullNow': {'en': 'Pull from Sheets', 'zh': '从表格拉取', 'ms': 'Tarik dari Sheets'},
+  'btnSyncNow': {'en': 'Sync now', 'zh': '立即同步', 'ms': 'Segerak sekarang'},
   'sheetsLastSync': {'en': 'Last synced', 'zh': '上次同步', 'ms': 'Segerak terakhir'},
   'sheetsNever': {'en': 'never', 'zh': '从未', 'ms': 'tiada'},
   'dlgPullTitle': {'en': 'Pull from Sheets?', 'zh': '从表格拉取？', 'ms': 'Tarik dari Sheets?'},
@@ -188,7 +192,24 @@ const Map<String, Map<String, String>> kTr = {
   'sheetsPushOk': {'en': 'Pushed to Google Sheets', 'zh': '已推送到 Google 表格', 'ms': 'Berjaya ditolak ke Google Sheets'},
   'sheetsPullOk': {'en': 'Pulled from Google Sheets', 'zh': '已从 Google 表格拉取', 'ms': 'Berjaya ditarik dari Google Sheets'},
   'sheetsError': {'en': 'Sync error', 'zh': '同步出错', 'ms': 'Ralat penyegerakan'},
-  'sheetsAutoSyncNote': {'en': 'While connected, changes you make here push to Sheets automatically. Use "Pull" to fetch edits made directly in Sheets.', 'zh': '连接后，您在此处所做的更改会自动推送到表格。使用"拉取"以获取直接在表格中所做的编辑。', 'ms': 'Semasa disambungkan, perubahan yang anda buat di sini ditolak secara automatik ke Sheets. Guna "Tarik" untuk mendapatkan suntingan yang dibuat terus dalam Sheets.'},
+  'sheetsAutoSyncNote': {'en': 'While connected, changes you make here sync to Sheets automatically (merged with anyone else\'s changes, nothing is overwritten). The app also syncs each time it opens.', 'zh': '连接后，您在此处所做的更改会自动与表格同步（与他人的更改合并，不会覆盖任何内容）。每次打开应用时也会自动同步。', 'ms': 'Semasa disambungkan, perubahan yang anda buat di sini disegerakkan secara automatik ke Sheets (digabungkan dengan perubahan orang lain, tiada apa yang ditulis ganti). Aplikasi juga menyegerak setiap kali dibuka.'},
+  'deviceFlowTitle': {'en': 'Connect your Google account', 'zh': '连接您的 Google 账号', 'ms': 'Sambungkan akaun Google anda'},
+  'deviceFlowInstructions': {'en': 'On any device with a browser, open the link below and enter this code:', 'zh': '在任意设备的浏览器中打开以下链接，并输入此代码：', 'ms': 'Pada mana-mana peranti dengan pelayar, buka pautan di bawah dan masukkan kod ini:'},
+  'deviceFlowWaiting': {'en': 'Waiting for you to authorize…', 'zh': '正在等待您授权…', 'ms': 'Menunggu kebenaran anda…'},
+  'btnCancelConnect': {'en': 'Cancel', 'zh': '取消', 'ms': 'Batal'},
+  'btnCopyCode': {'en': 'Copy code', 'zh': '复制代码', 'ms': 'Salin kod'},
+  'codeCopied': {'en': 'Code copied to clipboard', 'zh': '代码已复制到剪贴板', 'ms': 'Kod disalin ke papan keratan'},
+  'sheetsConnectedOk': {'en': 'Connected to Google', 'zh': '已连接到 Google', 'ms': 'Berjaya disambungkan ke Google'},
+  'lblUnit': {'en': 'Unit', 'zh': '单位', 'ms': 'Unit'},
+  'btnTakePhoto': {'en': 'Take photo', 'zh': '拍照', 'ms': 'Ambil gambar'},
+  'btnAddPhoto': {'en': 'Add photo', 'zh': '添加照片', 'ms': 'Tambah gambar'},
+  'btnViewPhoto': {'en': 'View photo', 'zh': '查看照片', 'ms': 'Lihat gambar'},
+  'btnRetakePhoto': {'en': 'Retake photo', 'zh': '重新拍照', 'ms': 'Ambil semula gambar'},
+  'btnRemovePhoto': {'en': 'Remove photo', 'zh': '移除照片', 'ms': 'Alih keluar gambar'},
+  'titleEditQty': {'en': 'Edit quantity', 'zh': '编辑数量', 'ms': 'Edit kuantiti'},
+  'btnSave': {'en': 'Save', 'zh': '保存', 'ms': 'Simpan'},
+  'photoNote': {'en': 'Photos stay on this device only — they do not sync to Google Sheets.', 'zh': '照片仅保存在本设备 —— 不会同步到 Google 表格。', 'ms': 'Gambar kekal di peranti ini sahaja — tidak disegerakkan ke Google Sheets.'},
+  'errorGeneric': {'en': 'Something went wrong', 'zh': '出现错误', 'ms': 'Sesuatu tidak kena'},
 };
 
 class PantryItem {
@@ -199,6 +220,10 @@ class PantryItem {
   bool bought;
   String location;
   String? barcode;
+  DateTime updatedAt;
+  bool deleted;
+  String unit;
+  String? photoPath;
 
   PantryItem({
     required this.id,
@@ -211,12 +236,25 @@ class PantryItem {
     this.bought = false,
     this.location = '',
     this.barcode,
-  });
+    DateTime? updatedAt,
+    this.deleted = false,
+    this.unit = '',
+    this.photoPath,
+  }) : updatedAt = updatedAt ?? DateTime.now();
+
+  /// Key used to match the "same" item across devices when merging syncs.
+  String get mergeKey => (barcode != null && barcode!.isNotEmpty)
+      ? 'b:$barcode'
+      : 'n:${name.trim().toLowerCase()}';
+
+  void touch() => updatedAt = DateTime.now();
 
   Map<String, dynamic> toJson() => {
         'id': id, 'name': name, 'cat': cat, 'status': status, 'qty': qty,
         'price': price, 'exp': exp?.toIso8601String(), 'bought': bought,
         'location': location, 'barcode': barcode,
+        'updatedAt': updatedAt.toIso8601String(), 'deleted': deleted,
+        'unit': unit, 'photoPath': photoPath,
       };
 
   factory PantryItem.fromJson(Map<String, dynamic> j) => PantryItem(
@@ -230,6 +268,10 @@ class PantryItem {
         bought: j['bought'] == true,
         location: (j['location'] ?? '').toString(),
         barcode: j['barcode']?.toString(),
+        updatedAt: (j['updatedAt'] != null) ? DateTime.tryParse(j['updatedAt'].toString()) : null,
+        deleted: j['deleted'] == true,
+        unit: (j['unit'] ?? '').toString(),
+        photoPath: j['photoPath']?.toString(),
       );
 
   int? get daysLeft {
@@ -252,6 +294,7 @@ class PurchaseRecord {
   final double price;
   final DateTime date;
   final DateTime? exp;
+  final String unit;
 
   PurchaseRecord({
     required this.id,
@@ -261,9 +304,10 @@ class PurchaseRecord {
     required this.price,
     required this.date,
     this.exp,
+    this.unit = '',
   });
 
-  PurchaseRecord copyWith({String? name, String? cat, int? qty, double? price, DateTime? date, DateTime? exp, bool clearExp = false}) =>
+  PurchaseRecord copyWith({String? name, String? cat, int? qty, double? price, DateTime? date, DateTime? exp, bool clearExp = false, String? unit}) =>
       PurchaseRecord(
         id: id,
         name: name ?? this.name,
@@ -272,11 +316,13 @@ class PurchaseRecord {
         price: price ?? this.price,
         date: date ?? this.date,
         exp: clearExp ? null : (exp ?? this.exp),
+        unit: unit ?? this.unit,
       );
 
   Map<String, dynamic> toJson() => {
         'id': id, 'name': name, 'cat': cat, 'qty': qty,
         'price': price, 'date': date.toIso8601String(), 'exp': exp?.toIso8601String(),
+        'unit': unit,
       };
 
   factory PurchaseRecord.fromJson(Map<String, dynamic> j) => PurchaseRecord(
@@ -287,6 +333,7 @@ class PurchaseRecord {
         price: (j['price'] is num) ? (j['price'] as num).toDouble() : 0,
         exp: (j['exp'] != null) ? DateTime.tryParse(j['exp'].toString()) : null,
         date: DateTime.tryParse(j['date']?.toString() ?? '') ?? DateTime.now(),
+        unit: (j['unit'] ?? '').toString(),
       );
 }
 
@@ -301,34 +348,136 @@ String? extractSpreadsheetId(String input) {
   return null;
 }
 
-class SheetsService {
-  static const _scopes = ['https://www.googleapis.com/auth/spreadsheets'];
-  final GoogleSignIn _google = GoogleSignIn(scopes: _scopes);
-  GoogleSignInAccount? account;
+// Device-code OAuth flow (RFC 8628) — no Google Play Services required, works
+// on any device with a browser (this device or another). Client ID/secret for
+// a "TVs and Limited Input devices" OAuth client are not confidential for this
+// flow (Google's own docs: not treated as a secret in this grant type).
+class DeviceFlowAuth {
+  static const String clientId = '921740079653-93r0tajqa45e1qd365fnl6s6pj2m6kep.apps.googleusercontent.com';
+  static const String clientSecret = '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';
+  static const List<String> scopes = [
+    'https://www.googleapis.com/auth/spreadsheets',
+    'https://www.googleapis.com/auth/userinfo.email',
+  ];
 
-  Future<GoogleSignInAccount?> signInSilently() async {
-    try {
-      account = await _google.signInSilently();
-    } catch (_) {}
-    return account;
+  String? accessToken;
+  String? refreshToken;
+  DateTime? expiry;
+  String? email;
+
+  bool get isSignedIn => refreshToken != null;
+
+  Future<void> loadPersisted() async {
+    final p = await SharedPreferences.getInstance();
+    accessToken = p.getString('pantry.gauth.access');
+    refreshToken = p.getString('pantry.gauth.refresh');
+    final exp = p.getString('pantry.gauth.expiry');
+    expiry = exp != null ? DateTime.tryParse(exp) : null;
+    email = p.getString('pantry.gauth.email');
   }
 
-  Future<GoogleSignInAccount?> signIn() async {
-    account = await _google.signIn();
-    return account;
+  Future<void> _persistTokens() async {
+    final p = await SharedPreferences.getInstance();
+    if (accessToken != null) await p.setString('pantry.gauth.access', accessToken!);
+    if (refreshToken != null) await p.setString('pantry.gauth.refresh', refreshToken!);
+    if (expiry != null) await p.setString('pantry.gauth.expiry', expiry!.toIso8601String());
+    if (email != null) await p.setString('pantry.gauth.email', email!);
   }
 
   Future<void> signOut() async {
-    await _google.signOut();
-    account = null;
+    accessToken = null;
+    refreshToken = null;
+    expiry = null;
+    email = null;
+    final p = await SharedPreferences.getInstance();
+    await p.remove('pantry.gauth.access');
+    await p.remove('pantry.gauth.refresh');
+    await p.remove('pantry.gauth.expiry');
+    await p.remove('pantry.gauth.email');
   }
 
-  Future<Map<String, String>> _headers() async {
-    final acc = account;
-    if (acc == null) throw Exception('Not signed in');
-    final h = await acc.authHeaders;
-    return {...h, 'Content-Type': 'application/json'};
+  Future<Map<String, dynamic>> requestDeviceCode() async {
+    final res = await http.post(
+      Uri.parse('https://oauth2.googleapis.com/device/code'),
+      body: {'client_id': clientId, 'scope': scopes.join(' ')},
+    );
+    if (res.statusCode != 200) throw Exception('${res.statusCode}: ${res.body}');
+    return jsonDecode(res.body) as Map<String, dynamic>;
   }
+
+  /// Returns true once authorized, false while still pending; throws on hard failure.
+  Future<bool> tryExchangeDeviceCode(String deviceCode) async {
+    final res = await http.post(
+      Uri.parse('https://oauth2.googleapis.com/token'),
+      body: {
+        'client_id': clientId,
+        'client_secret': clientSecret,
+        'device_code': deviceCode,
+        'grant_type': 'urn:ietf:params:oauth:grant-type:device_code',
+      },
+    );
+    final j = jsonDecode(res.body) as Map<String, dynamic>;
+    if (res.statusCode == 200) {
+      accessToken = j['access_token'] as String;
+      refreshToken = (j['refresh_token'] as String?) ?? refreshToken;
+      expiry = DateTime.now().add(Duration(seconds: (j['expires_in'] as num).toInt()));
+      await _fetchEmail();
+      await _persistTokens();
+      return true;
+    }
+    final err = j['error'] as String?;
+    if (err == 'authorization_pending' || err == 'slow_down') return false;
+    throw Exception(err ?? 'device_flow_failed');
+  }
+
+  Future<void> _fetchEmail() async {
+    try {
+      final res = await http.get(
+        Uri.parse('https://www.googleapis.com/oauth2/v2/userinfo'),
+        headers: {'Authorization': 'Bearer $accessToken'},
+      );
+      if (res.statusCode == 200) {
+        email = (jsonDecode(res.body) as Map)['email'] as String?;
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _refreshAccessToken() async {
+    if (refreshToken == null) throw Exception('Not signed in');
+    final res = await http.post(
+      Uri.parse('https://oauth2.googleapis.com/token'),
+      body: {
+        'client_id': clientId,
+        'client_secret': clientSecret,
+        'refresh_token': refreshToken!,
+        'grant_type': 'refresh_token',
+      },
+    );
+    if (res.statusCode != 200) throw Exception('${res.statusCode}: ${res.body}');
+    final j = jsonDecode(res.body) as Map<String, dynamic>;
+    accessToken = j['access_token'] as String;
+    expiry = DateTime.now().add(Duration(seconds: (j['expires_in'] as num).toInt()));
+    await _persistTokens();
+  }
+
+  Future<Map<String, String>> authHeaders() async {
+    if (refreshToken == null) throw Exception('Not signed in');
+    if (accessToken == null || expiry == null || DateTime.now().isAfter(expiry!.subtract(const Duration(minutes: 1)))) {
+      await _refreshAccessToken();
+    }
+    return {'Authorization': 'Bearer $accessToken', 'Content-Type': 'application/json'};
+  }
+}
+
+class SheetsService {
+  final DeviceFlowAuth auth = DeviceFlowAuth();
+
+  Future<void> loadPersisted() => auth.loadPersisted();
+  bool get isSignedIn => auth.isSignedIn;
+  String? get email => auth.email;
+  Future<void> signOut() => auth.signOut();
+
+  Future<Map<String, String>> _headers() => auth.authHeaders();
 
   Future<String> createSpreadsheet(String title) async {
     final res = await http.post(
@@ -348,15 +497,18 @@ class SheetsService {
   Future<void> pushInventory(String spreadsheetId, List<PantryItem> items) async {
     final headers = await _headers();
     final rows = <List<dynamic>>[
-      ['Name', 'Category', 'Qty', 'Status', 'Price', 'Expiry', 'Location', 'Barcode'],
+      ['Name', 'Category', 'Qty', 'Status', 'Price', 'Expiry', 'Location', 'Barcode', 'UpdatedAt', 'Deleted', 'Unit'],
       ...items.map((it) => [
             it.name, it.cat, it.qty, it.status, it.price,
             it.exp?.toIso8601String().substring(0, 10) ?? '',
             it.location, it.barcode ?? '',
+            it.updatedAt.toIso8601String(),
+            it.deleted ? 'Y' : '',
+            it.unit,
           ]),
     ];
     await http.post(
-      Uri.parse('https://sheets.googleapis.com/v4/spreadsheets/$spreadsheetId/values/Inventory!A1:H10000:clear'),
+      Uri.parse('https://sheets.googleapis.com/v4/spreadsheets/$spreadsheetId/values/Inventory!A1:K10000:clear'),
       headers: headers,
     );
     final res = await http.put(
@@ -370,7 +522,7 @@ class SheetsService {
   Future<List<PantryItem>> pullInventory(String spreadsheetId, String Function() genId) async {
     final headers = await _headers();
     final res = await http.get(
-      Uri.parse('https://sheets.googleapis.com/v4/spreadsheets/$spreadsheetId/values/Inventory!A2:H10000'),
+      Uri.parse('https://sheets.googleapis.com/v4/spreadsheets/$spreadsheetId/values/Inventory!A2:K10000'),
       headers: headers,
     );
     if (res.statusCode != 200) throw Exception('${res.statusCode}: ${res.body}');
@@ -378,7 +530,7 @@ class SheetsService {
     return values
         .where((r) => r is List && r.isNotEmpty && r[0].toString().trim().isNotEmpty)
         .map<PantryItem>((r) {
-      final row = List<String>.generate(8, (i) => i < (r as List).length ? r[i].toString() : '');
+      final row = List<String>.generate(11, (i) => i < (r as List).length ? r[i].toString() : '');
       return PantryItem(
         id: genId(),
         name: row[0],
@@ -389,8 +541,36 @@ class SheetsService {
         exp: row[5].isEmpty ? null : DateTime.tryParse(row[5]),
         location: row[6],
         barcode: row[7].isEmpty ? null : row[7],
+        updatedAt: row[8].isEmpty ? null : DateTime.tryParse(row[8]),
+        deleted: row[9].trim().toUpperCase() == 'Y',
+        unit: row[10],
       );
     }).toList();
+  }
+
+  /// Merges local + remote by mergeKey, newest `updatedAt` wins per item; items
+  /// only present on one side are kept (a union, not an overwrite). Pushes the
+  /// merged result back so the sheet reflects it, and returns the merged list
+  /// for the caller to store locally.
+  static List<PantryItem> mergeItems(List<PantryItem> local, List<PantryItem> remote) {
+    final byKey = <String, PantryItem>{};
+    for (final it in local) {
+      byKey[it.mergeKey] = it;
+    }
+    for (final r in remote) {
+      final existing = byKey[r.mergeKey];
+      if (existing == null || r.updatedAt.isAfter(existing.updatedAt)) {
+        byKey[r.mergeKey] = r;
+      }
+    }
+    return byKey.values.toList();
+  }
+
+  Future<List<PantryItem>> syncMerge(String spreadsheetId, List<PantryItem> local, String Function() genId) async {
+    final remote = await pullInventory(spreadsheetId, genId);
+    final merged = mergeItems(local, remote);
+    await pushInventory(spreadsheetId, merged);
+    return merged;
   }
 }
 
@@ -487,6 +667,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   DateTime? _addExp;
   String _addLoc = '';
   String? _addBarcode;
+  String _addUnit = kUnits.first;
+  String? _addPhotoPath;
   String _filterCat = '';
   String _filterLoc = '';
   String _sortBy = 'cat';
@@ -498,8 +680,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   void initState() {
     super.initState();
     _tab = TabController(length: 3, vsync: this)..addListener(() => setState(() {}));
-    _load();
-    _sheets.signInSilently().then((_) { if (mounted) setState(() {}); });
+    _load().then((_) {
+      _sheets.loadPersisted().then((_) {
+        if (!mounted) return;
+        setState(() {});
+        if (_sheets.isSignedIn && _spreadsheetId != null) _runSync();
+      });
+    });
   }
 
   @override
@@ -572,14 +759,24 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   void _scheduleSync() {
-    if (_sheets.account == null || _spreadsheetId == null) return;
+    if (!_sheets.isSignedIn || _spreadsheetId == null) return;
     _syncDebounce?.cancel();
-    _syncDebounce = Timer(const Duration(seconds: 2), () async {
-      try {
-        await _sheets.pushInventory(_spreadsheetId!, _items);
-        await _setLastSync();
-      } catch (_) {}
-    });
+    _syncDebounce = Timer(const Duration(seconds: 2), _runSync);
+  }
+
+  Future<void> _applyMergedItems(List<PantryItem> merged) async {
+    if (mounted) setState(() => _items = merged);
+    final p = await SharedPreferences.getInstance();
+    await p.setString('pantry.items', jsonEncode(_items.map((e) => e.toJson()).toList()));
+    await _setLastSync();
+  }
+
+  Future<void> _runSync() async {
+    if (!_sheets.isSignedIn || _spreadsheetId == null) return;
+    try {
+      final merged = await _sheets.syncMerge(_spreadsheetId!, _items, _uid);
+      await _applyMergedItems(merged);
+    } catch (_) {}
   }
 
   Future<void> _setLastSync() async {
@@ -626,7 +823,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   void _logPurchase(PantryItem it) {
     _purchases.insert(0, PurchaseRecord(
-      id: _uid(), name: it.name, cat: it.cat, qty: it.qty, price: it.price, date: DateTime.now(), exp: it.exp,
+      id: _uid(), name: it.name, cat: it.cat, qty: it.qty, price: it.price, date: DateTime.now(), exp: it.exp, unit: it.unit,
     ));
   }
 
@@ -650,6 +847,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         cat: _addCat, status: _addStatus, exp: _addExp,
         price: double.tryParse(_priceCtrl.text) ?? 0,
         location: _addLoc, barcode: _addBarcode,
+        unit: _addUnit, photoPath: _addPhotoPath,
       );
       _items.insert(0, it);
       _logPurchase(it);
@@ -661,6 +859,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _addExp = null;
       _addStatus = 'ok';
       _addBarcode = null;
+      _addPhotoPath = null;
     });
     _persist();
     FocusScope.of(context).unfocus();
@@ -679,24 +878,131 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     _persist();
   }
 
+  List<PantryItem> get _visibleItems => _items.where((i) => !i.deleted).toList();
+
   void _changeQty(PantryItem it, int d) {
     setState(() {
       it.qty = (it.qty + d).clamp(0, 9999);
       if (it.qty == 0 && it.status == 'ok') it.status = 'out';
+      it.touch();
     });
     _persist();
   }
 
-  void _setStatus(PantryItem it, String s) { setState(() => it.status = s); _persist(); }
-  void _delete(PantryItem it) { setState(() => _items.remove(it)); _persist(); }
-  void _toggleBought(PantryItem it) { setState(() => it.bought = !it.bought); _persist(); }
+  void _setStatus(PantryItem it, String s) { setState(() { it.status = s; it.touch(); }); _persist(); }
+  void _delete(PantryItem it) { setState(() { it.deleted = true; it.touch(); }); _persist(); }
+  void _toggleBought(PantryItem it) { setState(() { it.bought = !it.bought; it.touch(); }); _persist(); }
 
   void _restockBought() {
     setState(() {
-      for (final i in _items.where((e) => e.bought)) {
+      for (final i in _visibleItems.where((e) => e.bought)) {
         i.bought = false; i.status = 'ok';
         if (i.qty == 0) i.qty = 1;
+        i.touch();
       }
+    });
+    _persist();
+  }
+
+  // ---- photo ----
+  Future<String?> _capturePhoto() async {
+    try {
+      final shot = await ImagePicker().pickImage(source: ImageSource.camera, maxWidth: 1280, imageQuality: 80);
+      if (shot == null) return null;
+      final dir = await getApplicationDocumentsDirectory();
+      final photosDir = Directory('${dir.path}/photos');
+      if (!await photosDir.exists()) await photosDir.create(recursive: true);
+      final destPath = '${photosDir.path}/${_uid()}.jpg';
+      await File(shot.path).copy(destPath);
+      return destPath;
+    } catch (e) {
+      if (mounted) _snack('${tr('errorGeneric')}: $e');
+      return null;
+    }
+  }
+
+  void _viewPhoto(String path) {
+    showDialog(
+      context: context,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.black,
+        child: InteractiveViewer(child: Image.file(File(path))),
+      ),
+    );
+  }
+
+  Future<void> _editItemPhoto(PantryItem it) async {
+    final hasPhoto = it.photoPath != null && File(it.photoPath!).existsSync();
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          if (hasPhoto)
+            ListTile(leading: const Icon(Icons.image_outlined), title: Text(tr('btnViewPhoto')),
+                onTap: () => Navigator.pop(context, 'view')),
+          ListTile(leading: const Icon(Icons.camera_alt_outlined),
+              title: Text(hasPhoto ? tr('btnRetakePhoto') : tr('btnAddPhoto')),
+              onTap: () => Navigator.pop(context, 'take')),
+          if (hasPhoto)
+            ListTile(leading: const Icon(Icons.delete_outline, color: kDanger), title: Text(tr('btnRemovePhoto')),
+                onTap: () => Navigator.pop(context, 'remove')),
+        ]),
+      ),
+    );
+    if (action == 'view' && hasPhoto) {
+      _viewPhoto(it.photoPath!);
+    } else if (action == 'take') {
+      final path = await _capturePhoto();
+      if (path != null) {
+        setState(() { it.photoPath = path; it.touch(); });
+        _persist();
+      }
+    } else if (action == 'remove') {
+      setState(() { it.photoPath = null; it.touch(); });
+      _persist();
+    }
+  }
+
+  Future<void> _editQtyDialog(PantryItem it) async {
+    final ctrl = TextEditingController(text: '${it.qty}');
+    String unit = kUnits.contains(it.unit) ? it.unit : kUnits.first;
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (_) => StatefulBuilder(
+        builder: (context, setSheet) => AlertDialog(
+          title: Text(tr('titleEditQty')),
+          content: Row(children: [
+            Expanded(
+              child: TextField(
+                controller: ctrl,
+                keyboardType: TextInputType.number,
+                autofocus: true,
+                decoration: InputDecoration(labelText: tr('lblQty')),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                initialValue: unit,
+                decoration: InputDecoration(labelText: tr('lblUnit')),
+                items: kUnits.map((u) => DropdownMenuItem(value: u, child: Text(u))).toList(),
+                onChanged: (v) => setSheet(() => unit = v ?? unit),
+              ),
+            ),
+          ]),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: Text(tr('btnCancel'))),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(tr('btnSave'))),
+          ],
+        ),
+      ),
+    );
+    if (saved != true) return;
+    setState(() {
+      it.qty = int.tryParse(ctrl.text) ?? it.qty;
+      it.unit = unit;
+      if (it.qty == 0 && it.status == 'ok') it.status = 'out';
+      it.touch();
     });
     _persist();
   }
@@ -763,12 +1069,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     if (!mounted) return;
     await Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => ConsumePage(
-        items: _items,
+        items: _visibleItems,
         onScan: _scanForConsume,
         onDeduct: (it, useAll) {
           setState(() {
             it.qty = useAll ? 0 : (it.qty - 1).clamp(0, 9999);
             if (it.qty == 0) it.status = 'out';
+            it.touch();
           });
           _persist();
         },
@@ -793,7 +1100,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     });
     await Clipboard.setData(ClipboardData(text: data));
     if (mounted) {
-      _snack('${tr('snackBackupCopied')} (${_items.length})');
+      _snack('${tr('snackBackupCopied')} (${_visibleItems.length})');
     }
   }
 
@@ -830,7 +1137,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         }
       });
       _persist();
-      if (mounted) _snack('${tr('snackImported')} (${_items.length})');
+      if (mounted) _snack('${tr('snackImported')} (${_visibleItems.length})');
     } catch (_) {
       if (mounted) _snack(tr('snackInvalidBackup'));
     }
@@ -869,7 +1176,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                     )));
               }),
           ListTile(leading: const Icon(Icons.cloud_sync_outlined), title: Text(tr('menuSheets')),
-              subtitle: Text(_sheets.account?.email ?? tr('sheetsNotSignedIn'),
+              subtitle: Text(_sheets.email ?? tr('sheetsNotSignedIn'),
                   overflow: TextOverflow.ellipsis),
               onTap: () {
                 Navigator.of(context).push(MaterialPageRoute(
@@ -880,8 +1187,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                       items: _items,
                       genId: _uid,
                       onLinked: (id) { setState(() => _spreadsheetId = id); _persist(); },
-                      onSynced: _setLastSync,
-                      onPulled: (list) { setState(() => _items = list); _persist(); },
+                      onMerged: _applyMergedItems,
                       onSignedOut: () { setState(() {}); },
                     )));
               }),
@@ -967,7 +1273,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('btnCancel'))),
           TextButton(
-            onPressed: () { setState(() => _items.clear()); _persist(); Navigator.pop(context); },
+            onPressed: () {
+              setState(() {
+                for (final it in _items) { it.deleted = true; it.touch(); }
+              });
+              _persist();
+              Navigator.pop(context);
+            },
             child: Text(tr('btnDelete'), style: const TextStyle(color: kDanger)),
           ),
         ],
@@ -980,7 +1292,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   String _statusText(String s) => s == 'out' ? tr('statOut') : (s == 'low' ? tr('statLow') : tr('statusInStock'));
 
   List<PantryItem> get _shoppingList =>
-      _items.where((i) => i.status != 'ok' || i.expiringSoon).toList()
+      _visibleItems.where((i) => i.status != 'ok' || i.expiringSoon).toList()
         ..sort((a, b) {
           final c = (a.bought ? 1 : 0) - (b.bought ? 1 : 0);
           return c != 0 ? c : a.cat.compareTo(b.cat);
@@ -988,9 +1300,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   @override
   Widget build(BuildContext context) {
-    final low = _items.where((i) => i.status == 'low').length;
-    final out = _items.where((i) => i.status == 'out').length;
-    final exp = _items.where((i) => i.expiringSoon).length;
+    final visible = _visibleItems;
+    final low = visible.where((i) => i.status == 'low').length;
+    final out = visible.where((i) => i.status == 'out').length;
+    final exp = visible.where((i) => i.expiringSoon).length;
 
     return Scaffold(
       appBar: AppBar(
@@ -1014,7 +1327,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
             child: Row(children: [
-              _stat('${_items.length}', tr('statItems'), null),
+              _stat('${visible.length}', tr('statItems'), null),
               _stat('$low', tr('statLow'), kWarn),
               _stat('$out', tr('statOut'), kDanger),
               _stat('$exp', tr('statExpiring'), kPurple),
@@ -1025,7 +1338,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             isScrollable: true,
             tabAlignment: TabAlignment.start,
             tabs: [
-              Tab(text: '${tr('tabInventory')} (${_items.length})'),
+              Tab(text: '${tr('tabInventory')} (${visible.length})'),
               Tab(text: '\u{1F4CD} ${tr('tabLocation')}'),
               Tab(text: '\u{1F6D2} ${tr('tabShopping')} (${_shoppingList.length})'),
             ],
@@ -1060,14 +1373,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   // ---- Inventory tab ----
   Widget _inventoryTab() {
     final q = _searchCtrl.text.trim().toLowerCase();
-    var shown = _items.where((i) =>
+    var shown = _visibleItems.where((i) =>
         (q.isEmpty || i.name.toLowerCase().contains(q)) &&
         (_filterCat.isEmpty || i.cat == _filterCat)).toList();
 
     final children = <Widget>[_addCard(), _toolbar(), _catChips(), const SizedBox(height: 8)];
 
     if (shown.isEmpty) {
-      children.add(_empty(_items.isEmpty
+      children.add(_empty(_visibleItems.isEmpty
           ? tr('emptyNoItems')
           : tr('emptyNoMatch')));
     } else if (_sortBy == 'cat') {
@@ -1127,6 +1440,16 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               ),
             ),
             const SizedBox(width: 8),
+            SizedBox(
+              width: 90,
+              child: DropdownButtonFormField<String>(
+                initialValue: _addUnit,
+                decoration: InputDecoration(labelText: tr('lblUnit')),
+                items: kUnits.map((u) => DropdownMenuItem(value: u, child: Text(u))).toList(),
+                onChanged: (v) => setState(() => _addUnit = v ?? _addUnit),
+              ),
+            ),
+            const SizedBox(width: 8),
             Expanded(
               child: DropdownButtonFormField<String>(
                 initialValue: _addCat,
@@ -1180,6 +1503,28 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 },
               ),
             ),
+          ]),
+          const SizedBox(height: 10),
+          Row(children: [
+            if (_addPhotoPath != null) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.file(File(_addPhotoPath!), width: 44, height: 44, fit: BoxFit.cover),
+              ),
+              const SizedBox(width: 8),
+            ],
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () async {
+                  final path = await _capturePhoto();
+                  if (path != null) setState(() => _addPhotoPath = path);
+                },
+                icon: const Icon(Icons.camera_alt_outlined),
+                label: Text(_addPhotoPath == null ? tr('btnAddPhoto') : tr('btnRetakePhoto')),
+              ),
+            ),
+            if (_addPhotoPath != null)
+              IconButton(onPressed: () => setState(() => _addPhotoPath = null), icon: const Icon(Icons.clear)),
           ]),
           const SizedBox(height: 10),
           Row(children: [
@@ -1279,7 +1624,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           final c = cats[i];
           final label = c == 'All' ? tr('chipAll') : catLabel(c);
           final selected = (c == 'All' && _filterCat.isEmpty) || c == _filterCat;
-          final count = c == 'All' ? _items.length : _items.where((it) => it.cat == c).length;
+          final count = c == 'All' ? _visibleItems.length : _visibleItems.where((it) => it.cat == c).length;
           return ChoiceChip(
             label: Text(count > 0 ? '$label ($count)' : label),
             selected: selected,
@@ -1292,9 +1637,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   // ---- Location tab ----
   Widget _locationTab() {
-    final unassigned = _items.any((i) => i.location.isEmpty);
+    final visible = _visibleItems;
+    final unassigned = visible.any((i) => i.location.isEmpty);
     final locs = ['All', ..._locations, if (unassigned) 'Unassigned'];
-    final shown = _items.where((i) {
+    final shown = visible.where((i) {
       if (_filterLoc.isEmpty) return true;
       if (_filterLoc == 'Unassigned') return i.location.isEmpty;
       return i.location == _filterLoc;
@@ -1315,10 +1661,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               final label = l == 'All' ? tr('chipAll') : (l == 'Unassigned' ? tr('chipUnassigned') : l);
               final selected = (l == 'All' && _filterLoc.isEmpty) || l == _filterLoc;
               final count = l == 'All'
-                  ? _items.length
+                  ? visible.length
                   : (l == 'Unassigned'
-                      ? _items.where((it) => it.location.isEmpty).length
-                      : _items.where((it) => it.location == l).length);
+                      ? visible.where((it) => it.location.isEmpty).length
+                      : visible.where((it) => it.location == l).length);
               return ChoiceChip(
                 label: Text(count > 0 ? '$label ($count)' : label),
                 selected: selected,
@@ -1379,6 +1725,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         ),
         padding: const EdgeInsets.fromLTRB(10, 8, 4, 8),
         child: Row(children: [
+          _photoThumb(it),
+          const SizedBox(width: 8),
           _qtyStepper(it),
           const SizedBox(width: 10),
           Expanded(
@@ -1421,12 +1769,34 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     );
   }
 
+  Widget _photoThumb(PantryItem it) {
+    final hasPhoto = it.photoPath != null && File(it.photoPath!).existsSync();
+    return InkWell(
+      onTap: () => _editItemPhoto(it),
+      borderRadius: BorderRadius.circular(8),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: hasPhoto
+            ? Image.file(File(it.photoPath!), width: 40, height: 40, fit: BoxFit.cover)
+            : Container(
+                width: 40, height: 40,
+                color: Theme.of(context).dividerColor.withValues(alpha: .3),
+                child: Icon(Icons.camera_alt_outlined, size: 18, color: Theme.of(context).hintColor),
+              ),
+      ),
+    );
+  }
+
   Widget _qtyStepper(PantryItem it) => Row(mainAxisSize: MainAxisSize.min, children: [
         _miniBtn(Icons.remove, () => _changeQty(it, -1)),
-        SizedBox(
-          width: 26,
-          child: Text('${it.qty}', textAlign: TextAlign.center,
-              style: const TextStyle(fontWeight: FontWeight.w700)),
+        InkWell(
+          onTap: () => _editQtyDialog(it),
+          child: SizedBox(
+            width: it.unit.isEmpty ? 26 : 42,
+            child: Text(it.unit.isEmpty ? '${it.qty}' : '${it.qty}${it.unit}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+          ),
         ),
         _miniBtn(Icons.add, () => _changeQty(it, 1)),
       ]);
@@ -1630,7 +2000,7 @@ class _ConsumePageState extends State<ConsumePage> {
                       margin: const EdgeInsets.only(bottom: 8),
                       child: ListTile(
                         title: Text(it.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-                        subtitle: Text('${catLabel(it.cat)}${it.location.isEmpty ? '' : ' · ${it.location}'} · ${tr('lblQty').toLowerCase()} ${it.qty}'),
+                        subtitle: Text('${catLabel(it.cat)}${it.location.isEmpty ? '' : ' · ${it.location}'} · ${tr('lblQty').toLowerCase()} ${it.qty}${it.unit.isEmpty ? '' : ' ${it.unit}'}'),
                         trailing: const Icon(Icons.chevron_right),
                         onTap: () => _confirmDeduct(it),
                       ),
@@ -1670,6 +2040,7 @@ class _PurchaseHistoryPageState extends State<PurchaseHistoryPage> {
     final qtyCtrl = TextEditingController(text: '${r.qty}');
     final priceCtrl = TextEditingController(text: r.price == 0 ? '' : r.price.toString());
     String cat = kCats.contains(r.cat) ? r.cat : kCats.first;
+    String unit = kUnits.contains(r.unit) ? r.unit : kUnits.first;
     DateTime date = r.date;
     DateTime? exp = r.exp;
 
@@ -1687,11 +2058,21 @@ class _PurchaseHistoryPageState extends State<PurchaseHistoryPage> {
               const SizedBox(height: 10),
               Row(children: [
                 SizedBox(
-                  width: 80,
+                  width: 70,
                   child: TextField(
                     controller: qtyCtrl,
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(labelText: tr('lblQty')),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 90,
+                  child: DropdownButtonFormField<String>(
+                    initialValue: unit,
+                    decoration: InputDecoration(labelText: tr('lblUnit')),
+                    items: kUnits.map((u) => DropdownMenuItem(value: u, child: Text(u))).toList(),
+                    onChanged: (v) => setSheet(() => unit = v ?? unit),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -1762,6 +2143,7 @@ class _PurchaseHistoryPageState extends State<PurchaseHistoryPage> {
     widget.onEdit(r, r.copyWith(
       name: name,
       cat: cat,
+      unit: unit,
       qty: int.tryParse(qtyCtrl.text) ?? r.qty,
       price: double.tryParse(priceCtrl.text) ?? 0,
       date: date,
@@ -1806,7 +2188,7 @@ class _PurchaseHistoryPageState extends State<PurchaseHistoryPage> {
                     child: ListTile(
                       onTap: () => _editDialog(r),
                       title: Text(r.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-                      subtitle: Text('${catLabel(r.cat)} · ${tr('lblQty').toLowerCase()} ${r.qty} · ${_ds(r.date)}$expPart'),
+                      subtitle: Text('${catLabel(r.cat)} · ${tr('lblQty').toLowerCase()} ${r.qty}${r.unit.isEmpty ? '' : ' ${r.unit}'} · ${_ds(r.date)}$expPart'),
                       trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                         if (r.price > 0)
                           Padding(
@@ -1836,8 +2218,7 @@ class SheetsSyncPage extends StatefulWidget {
   final List<PantryItem> items;
   final String Function() genId;
   final void Function(String id) onLinked;
-  final Future<void> Function() onSynced;
-  final void Function(List<PantryItem> items) onPulled;
+  final Future<void> Function(List<PantryItem> merged) onMerged;
   final VoidCallback onSignedOut;
 
   const SheetsSyncPage({
@@ -1848,8 +2229,7 @@ class SheetsSyncPage extends StatefulWidget {
     required this.items,
     required this.genId,
     required this.onLinked,
-    required this.onSynced,
-    required this.onPulled,
+    required this.onMerged,
     required this.onSignedOut,
   });
 
@@ -1861,6 +2241,8 @@ class _SheetsSyncPageState extends State<SheetsSyncPage> {
   bool _busy = false;
   String? _spreadsheetId;
   DateTime? _lastSync;
+  Map<String, dynamic>? _deviceCode;
+  Timer? _pollTimer;
 
   @override
   void initState() {
@@ -1869,16 +2251,50 @@ class _SheetsSyncPageState extends State<SheetsSyncPage> {
     _lastSync = widget.lastSync;
   }
 
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
+  }
+
   void _snack(String m) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
 
-  Future<void> _signIn() async {
+  Future<void> _startConnect() async {
     setState(() => _busy = true);
     try {
-      await widget.sheets.signIn();
+      final data = await widget.sheets.auth.requestDeviceCode();
+      setState(() { _deviceCode = data; _busy = false; });
+      final interval = ((data['interval'] as num?)?.toInt() ?? 5).clamp(3, 30);
+      _pollTimer?.cancel();
+      _pollTimer = Timer.periodic(Duration(seconds: interval), (t) async {
+        try {
+          final ok = await widget.sheets.auth.tryExchangeDeviceCode(data['device_code'] as String);
+          if (ok) {
+            t.cancel();
+            if (mounted) setState(() => _deviceCode = null);
+            _snack(tr('sheetsConnectedOk'));
+          }
+        } catch (e) {
+          t.cancel();
+          if (mounted) setState(() => _deviceCode = null);
+          _snack('${tr('sheetsError')}: $e');
+        }
+      });
     } catch (e) {
+      setState(() => _busy = false);
       _snack('${tr('sheetsError')}: $e');
     }
-    setState(() => _busy = false);
+  }
+
+  void _cancelConnect() {
+    _pollTimer?.cancel();
+    setState(() => _deviceCode = null);
+  }
+
+  Future<void> _copyCode() async {
+    final code = _deviceCode?['user_code']?.toString() ?? '';
+    await Clipboard.setData(ClipboardData(text: code));
+    _snack(tr('codeCopied'));
   }
 
   Future<void> _signOut() async {
@@ -1893,7 +2309,7 @@ class _SheetsSyncPageState extends State<SheetsSyncPage> {
       final id = await widget.sheets.createSpreadsheet('Pantry Inventory');
       widget.onLinked(id);
       setState(() => _spreadsheetId = id);
-      await _push();
+      await _sync();
     } catch (e) {
       _snack('${tr('sheetsError')}: $e');
     }
@@ -1923,41 +2339,14 @@ class _SheetsSyncPageState extends State<SheetsSyncPage> {
     setState(() => _spreadsheetId = id);
   }
 
-  Future<void> _push() async {
+  Future<void> _sync() async {
     if (_spreadsheetId == null) return;
     setState(() => _busy = true);
     try {
-      await widget.sheets.pushInventory(_spreadsheetId!, widget.items);
-      await widget.onSynced();
+      final merged = await widget.sheets.syncMerge(_spreadsheetId!, widget.items, widget.genId);
+      await widget.onMerged(merged);
       setState(() => _lastSync = DateTime.now());
       _snack(tr('sheetsPushOk'));
-    } catch (e) {
-      _snack('${tr('sheetsError')}: $e');
-    }
-    setState(() => _busy = false);
-  }
-
-  Future<void> _pull() async {
-    if (_spreadsheetId == null) return;
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text(tr('dlgPullTitle')),
-        content: Text(tr('dlgPullBody')),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(tr('btnCancel'))),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(tr('btnPullNow'))),
-        ],
-      ),
-    );
-    if (ok != true) return;
-    setState(() => _busy = true);
-    try {
-      final list = await widget.sheets.pullInventory(_spreadsheetId!, widget.genId);
-      widget.onPulled(list);
-      await widget.onSynced();
-      setState(() => _lastSync = DateTime.now());
-      _snack(tr('sheetsPullOk'));
     } catch (e) {
       _snack('${tr('sheetsError')}: $e');
     }
@@ -1971,7 +2360,8 @@ class _SheetsSyncPageState extends State<SheetsSyncPage> {
 
   @override
   Widget build(BuildContext context) {
-    final acc = widget.sheets.account;
+    final signedIn = widget.sheets.isSignedIn;
+    final email = widget.sheets.email;
     return Scaffold(
       appBar: AppBar(title: Text(tr('titleSheets'))),
       body: ListView(
@@ -1981,12 +2371,40 @@ class _SheetsSyncPageState extends State<SheetsSyncPage> {
             child: Padding(
               padding: const EdgeInsets.all(14),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(acc == null ? tr('sheetsNotSignedIn') : '${tr('sheetsSignedInAs')} ${acc.email}',
+                Text(!signedIn ? tr('sheetsNotSignedIn') : '${tr('sheetsSignedInAs')} ${email ?? ''}',
                     style: const TextStyle(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 10),
-                if (acc == null)
+                if (_deviceCode != null) ...[
+                  Text(tr('deviceFlowInstructions'), style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor)),
+                  const SizedBox(height: 8),
+                  SelectableText(
+                    (_deviceCode!['verification_url'] ?? _deviceCode!['verification_uri'] ?? '').toString(),
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: kGreen.withValues(alpha: .12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text((_deviceCode!['user_code'] ?? '').toString(),
+                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: 2)),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(spacing: 8, runSpacing: 8, children: [
+                    OutlinedButton.icon(onPressed: _copyCode, icon: const Icon(Icons.copy), label: Text(tr('btnCopyCode'))),
+                    TextButton(onPressed: _cancelConnect, child: Text(tr('btnCancelConnect'))),
+                  ]),
+                  const SizedBox(height: 10),
+                  Row(children: [
+                    const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                    const SizedBox(width: 10),
+                    Text(tr('deviceFlowWaiting'), style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor)),
+                  ]),
+                ] else if (!signedIn)
                   FilledButton.icon(
-                    onPressed: _busy ? null : _signIn,
+                    onPressed: _busy ? null : _startConnect,
                     icon: const Icon(Icons.login),
                     label: Text(tr('btnSignIn')),
                   )
@@ -1999,7 +2417,7 @@ class _SheetsSyncPageState extends State<SheetsSyncPage> {
               ]),
             ),
           ),
-          if (acc != null) ...[
+          if (signedIn) ...[
             const SizedBox(height: 12),
             Card(
               child: Padding(
@@ -2028,14 +2446,9 @@ class _SheetsSyncPageState extends State<SheetsSyncPage> {
                     Wrap(spacing: 8, runSpacing: 8, children: [
                       OutlinedButton.icon(onPressed: _copyLink, icon: const Icon(Icons.copy), label: Text(tr('btnCopyLink'))),
                       FilledButton.icon(
-                        onPressed: _busy ? null : _push,
-                        icon: const Icon(Icons.upload),
-                        label: Text(tr('btnPushNow')),
-                      ),
-                      FilledButton.icon(
-                        onPressed: _busy ? null : _pull,
-                        icon: const Icon(Icons.download),
-                        label: Text(tr('btnPullNow')),
+                        onPressed: _busy ? null : _sync,
+                        icon: const Icon(Icons.sync),
+                        label: Text(tr('btnSyncNow')),
                       ),
                     ]),
                     const SizedBox(height: 10),
@@ -2047,6 +2460,8 @@ class _SheetsSyncPageState extends State<SheetsSyncPage> {
             ),
             const SizedBox(height: 12),
             Text(tr('sheetsAutoSyncNote'), style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor)),
+            const SizedBox(height: 6),
+            Text(tr('photoNote'), style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor)),
           ],
           if (_busy) const Padding(padding: EdgeInsets.only(top: 16), child: Center(child: CircularProgressIndicator())),
         ],
