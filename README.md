@@ -2,6 +2,12 @@
 
 A household groceries and inventory tracker for Android, built with Flutter. Scan barcodes to add items, track expiry dates and storage locations, deduct stock as you use things up, and keep the whole household in sync through a shared Google Sheet.
 
+## Screenshots
+
+| Home | Add item | Locations | Settings |
+|---|---|---|---|
+| ![Home screen](screenshots/screen_home.png) | ![Add item sheet](screenshots/screen_add.png) | ![Locations tab](screenshots/screen_locations.png) | ![Settings page](screenshots/screen_more.png) |
+
 ## Features
 
 - **Custom branded UI** — bottom navigation (Home / Locations / Shopping) with a floating add button, hero stat cards, and a color-coded category system, themed around the app's own logo
