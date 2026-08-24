@@ -57,6 +57,12 @@ const Color kWarn = Color(0xFFF59E0B);
 const Color kDanger = Color(0xFFEF4444);
 const Color kPurple = Color(0xFFA855F7);
 
+// Brand palette (from the app logo) — used for primary/interactive accents.
+// kGreen above stays reserved for the "in stock" status signal.
+const Color kBrand = Color(0xFFF0803D);
+const Color kBrandDeep = Color(0xFF1F4B36);
+const Color kCream = Color(0xFFFAF3E8);
+
 // ---------------------------------------------------------------------------
 // Lightweight translation layer (English / Chinese / Malay).
 String gLang = 'en';
@@ -81,6 +87,39 @@ const Map<String, Map<String, String>> kCatTr = {
   'Other': {'zh': '其他', 'ms': 'Lain-lain'},
 };
 String catLabel(String cat) => kCatTr[cat]?[gLang] ?? cat;
+
+const Map<String, Color> kCatColors = {
+  'Produce': Color(0xFF639922),
+  'Dairy': Color(0xFF378ADD),
+  'Meat & Fish': Color(0xFFD85A30),
+  'Pantry': Color(0xFFBA7517),
+  'Frozen': Color(0xFF185FA5),
+  'Bakery': Color(0xFF993C1D),
+  'Drinks': Color(0xFF0F6E56),
+  'Snacks': Color(0xFF993556),
+  'Toiletries': Color(0xFF534AB7),
+  'Cleaning Supplies': Color(0xFF3C3489),
+  'Personal Care': Color(0xFFD4537E),
+  'Household': Color(0xFF5F5E5A),
+  'Other': Color(0xFF888780),
+};
+const Map<String, IconData> kCatIcons = {
+  'Produce': Icons.eco,
+  'Dairy': Icons.egg,
+  'Meat & Fish': Icons.set_meal,
+  'Pantry': Icons.kitchen,
+  'Frozen': Icons.ac_unit,
+  'Bakery': Icons.bakery_dining,
+  'Drinks': Icons.local_cafe,
+  'Snacks': Icons.cookie,
+  'Toiletries': Icons.soap,
+  'Cleaning Supplies': Icons.cleaning_services,
+  'Personal Care': Icons.spa,
+  'Household': Icons.home,
+  'Other': Icons.category,
+};
+Color catColor(String cat) => kCatColors[cat] ?? kCatColors['Other']!;
+IconData catIcon(String cat) => kCatIcons[cat] ?? Icons.category;
 
 const Map<String, Map<String, String>> kTr = {
   'tipConsume': {'en': 'Use / consume item', 'zh': '取用 / 消耗物品', 'ms': 'Guna / Habiskan barang'},
@@ -210,6 +249,11 @@ const Map<String, Map<String, String>> kTr = {
   'btnSave': {'en': 'Save', 'zh': '保存', 'ms': 'Simpan'},
   'photoNote': {'en': 'Photos stay on this device only — they do not sync to Google Sheets.', 'zh': '照片仅保存在本设备 —— 不会同步到 Google 表格。', 'ms': 'Gambar kekal di peranti ini sahaja — tidak disegerakkan ke Google Sheets.'},
   'errorGeneric': {'en': 'Something went wrong', 'zh': '出现错误', 'ms': 'Sesuatu tidak kena'},
+  'navHome': {'en': 'Home', 'zh': '首页', 'ms': 'Utama'},
+  'navLocations': {'en': 'Locations', 'zh': '位置', 'ms': 'Lokasi'},
+  'navShopping': {'en': 'Shopping', 'zh': '购物', 'ms': 'Beli-belah'},
+  'navMore': {'en': 'More', 'zh': '更多', 'ms': 'Lagi'},
+  'statNeedAttention': {'en': 'need attention', 'zh': '需要留意', 'ms': 'perlu perhatian'},
 };
 
 class PantryItem {
@@ -606,12 +650,17 @@ class _PantryAppState extends State<PantryApp> {
   }
 
   ThemeData _theme(Brightness b) {
-    final scheme = ColorScheme.fromSeed(seedColor: kGreen, brightness: b);
+    final scheme = ColorScheme.fromSeed(seedColor: kBrand, brightness: b);
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
-      scaffoldBackgroundColor: b == Brightness.dark ? const Color(0xFF0F172A) : const Color(0xFFF6F7FB),
+      scaffoldBackgroundColor: b == Brightness.dark ? const Color(0xFF0F172A) : kCream,
       cardColor: b == Brightness.dark ? const Color(0xFF1E293B) : Colors.white,
+      appBarTheme: const AppBarTheme(
+        backgroundColor: kBrandDeep,
+        foregroundColor: Colors.white,
+        elevation: 0,
+      ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: b == Brightness.dark ? const Color(0xFF172033) : const Color(0xFFF1F4F9),
@@ -645,7 +694,7 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin {
+class _HomePageState extends State<HomePage> {
   List<PantryItem> _items = [];
   List<String> _history = [];
   List<String> _locations = List.of(kDefaultLocations);
@@ -656,7 +705,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   String? _spreadsheetId;
   DateTime? _lastSync;
   Timer? _syncDebounce;
-  late TabController _tab;
+  int _navIndex = 0;
 
   final _nameCtrl = TextEditingController();
   final _qtyCtrl = TextEditingController(text: '1');
@@ -679,7 +728,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   @override
   void initState() {
     super.initState();
-    _tab = TabController(length: 3, vsync: this)..addListener(() => setState(() {}));
     _load().then((_) {
       _sheets.loadPersisted().then((_) {
         if (!mounted) return;
@@ -692,7 +740,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   @override
   void dispose() {
     _syncDebounce?.cancel();
-    _tab.dispose();
     _nameCtrl.dispose();
     _qtyCtrl.dispose();
     _priceCtrl.dispose();
@@ -795,7 +842,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               onPressed: () => Navigator.pop(context, l),
               child: Row(children: [
                 Text(kLangNames[l]!),
-                if (l == gLang) const Padding(padding: EdgeInsets.only(left: 8), child: Icon(Icons.check, size: 18, color: kGreen)),
+                if (l == gLang) const Padding(padding: EdgeInsets.only(left: 8), child: Icon(Icons.check, size: 18, color: kBrand)),
               ]),
             )).toList(),
       ),
@@ -813,7 +860,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               child: Row(children: [
                 SizedBox(width: 48, child: Text(kCurrencySymbols[c]!, style: const TextStyle(fontWeight: FontWeight.w700))),
                 Text(c),
-                if (c == _currency) const Padding(padding: EdgeInsets.only(left: 8), child: Icon(Icons.check, size: 18, color: kGreen)),
+                if (c == _currency) const Padding(padding: EdgeInsets.only(left: 8), child: Icon(Icons.check, size: 18, color: kBrand)),
               ]),
             )).toList(),
       ),
@@ -1291,6 +1338,33 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   Color _statusColor(String s) => s == 'out' ? kDanger : (s == 'low' ? kWarn : kGreen);
   String _statusText(String s) => s == 'out' ? tr('statOut') : (s == 'low' ? tr('statLow') : tr('statusInStock'));
 
+  Widget _statusBadge(PantryItem it) {
+    final col = _statusColor(it.status);
+    return PopupMenuButton<String>(
+      onSelected: (v) => _setStatus(it, v),
+      itemBuilder: (_) => [
+        PopupMenuItem(value: 'ok', child: _statusMenuRow('ok')),
+        PopupMenuItem(value: 'low', child: _statusMenuRow('low')),
+        PopupMenuItem(value: 'out', child: _statusMenuRow('out')),
+      ],
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        decoration: BoxDecoration(color: col.withValues(alpha: .15), borderRadius: BorderRadius.circular(20)),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Container(width: 7, height: 7, decoration: BoxDecoration(color: col, shape: BoxShape.circle)),
+          const SizedBox(width: 5),
+          Icon(Icons.expand_more, size: 14, color: col),
+        ]),
+      ),
+    );
+  }
+
+  Widget _statusMenuRow(String s) => Row(children: [
+        Container(width: 8, height: 8, decoration: BoxDecoration(color: _statusColor(s), shape: BoxShape.circle)),
+        const SizedBox(width: 8),
+        Text(_statusText(s)),
+      ]);
+
   List<PantryItem> get _shoppingList =>
       _visibleItems.where((i) => i.status != 'ok' || i.expiringSoon).toList()
         ..sort((a, b) {
@@ -1301,9 +1375,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   @override
   Widget build(BuildContext context) {
     final visible = _visibleItems;
-    final low = visible.where((i) => i.status == 'low').length;
-    final out = visible.where((i) => i.status == 'out').length;
-    final exp = visible.where((i) => i.expiringSoon).length;
+    final needAttention = _shoppingList.length;
+    final pages = [_inventoryTab(), _locationTab(), _shoppingTab()];
 
     return Scaffold(
       appBar: AppBar(
@@ -1319,51 +1392,103 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             onPressed: widget.onToggleTheme,
             icon: Icon(widget.isDark ? Icons.dark_mode : Icons.light_mode),
           ),
-          IconButton(tooltip: tr('tipData'), onPressed: _dataMenu, icon: const Icon(Icons.more_vert)),
         ],
       ),
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
             child: Row(children: [
-              _stat('${visible.length}', tr('statItems'), null),
-              _stat('$low', tr('statLow'), kWarn),
-              _stat('$out', tr('statOut'), kDanger),
-              _stat('$exp', tr('statExpiring'), kPurple),
+              Expanded(
+                flex: 3,
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(color: kBrandDeep, borderRadius: BorderRadius.circular(16)),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('${visible.length}',
+                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Colors.white)),
+                    const SizedBox(height: 2),
+                    Text(tr('statItems'), style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: .85))),
+                  ]),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(color: Theme.of(context).cardColor, borderRadius: BorderRadius.circular(16)),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('$needAttention',
+                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800,
+                            color: needAttention > 0 ? kDanger : null)),
+                    const SizedBox(height: 2),
+                    Text(tr('statNeedAttention'), style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor)),
+                  ]),
+                ),
+              ),
             ]),
           ),
-          TabBar(
-            controller: _tab,
-            isScrollable: true,
-            tabAlignment: TabAlignment.start,
-            tabs: [
-              Tab(text: '${tr('tabInventory')} (${visible.length})'),
-              Tab(text: '\u{1F4CD} ${tr('tabLocation')}'),
-              Tab(text: '\u{1F6D2} ${tr('tabShopping')} (${_shoppingList.length})'),
-            ],
-          ),
-          Expanded(
-            child: TabBarView(
-              controller: _tab,
-              children: [_inventoryTab(), _locationTab(), _shoppingTab()],
-            ),
-          ),
+          Expanded(child: pages[_navIndex]),
         ],
       ),
+      bottomNavigationBar: _bottomBar(),
     );
   }
 
-  Widget _stat(String n, String label, Color? color) {
-    return Expanded(
-      child: Card(
-        margin: const EdgeInsets.symmetric(horizontal: 4),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          child: Column(children: [
-            Text(n, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: color)),
+  Widget _bottomBar() {
+    Widget navItem(IconData icon, String label, int idx) {
+      final selected = _navIndex == idx;
+      final color = selected ? kBrandDeep : Theme.of(context).hintColor;
+      return Expanded(
+        child: InkWell(
+          onTap: () => setState(() => _navIndex = idx),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, size: 22, color: color),
             const SizedBox(height: 2),
-            Text(label, style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor)),
+            Text(label, style: TextStyle(fontSize: 10, color: color)),
+          ]),
+        ),
+      );
+    }
+
+    return Material(
+      color: Theme.of(context).cardColor,
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 60,
+          child: Row(children: [
+            navItem(Icons.home_outlined, tr('navHome'), 0),
+            navItem(Icons.place_outlined, tr('navLocations'), 1),
+            Expanded(
+              child: Center(
+                child: InkWell(
+                  onTap: _openAddSheet,
+                  borderRadius: BorderRadius.circular(30),
+                  child: Container(
+                    width: 46, height: 46,
+                    decoration: BoxDecoration(
+                      color: kBrand,
+                      shape: BoxShape.circle,
+                      boxShadow: [BoxShadow(color: kBrand.withValues(alpha: .35), blurRadius: 10, offset: const Offset(0, 4))],
+                    ),
+                    child: const Icon(Icons.add, color: Colors.white, size: 24),
+                  ),
+                ),
+              ),
+            ),
+            navItem(Icons.shopping_cart_outlined, tr('navShopping'), 2),
+            Expanded(
+              child: InkWell(
+                onTap: _dataMenu,
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.more_horiz, size: 22, color: Theme.of(context).hintColor),
+                  const SizedBox(height: 2),
+                  Text(tr('navMore'), style: TextStyle(fontSize: 10, color: Theme.of(context).hintColor)),
+                ]),
+              ),
+            ),
           ]),
         ),
       ),
@@ -1377,7 +1502,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         (q.isEmpty || i.name.toLowerCase().contains(q)) &&
         (_filterCat.isEmpty || i.cat == _filterCat)).toList();
 
-    final children = <Widget>[_addCard(), _toolbar(), _catChips(), const SizedBox(height: 8)];
+    final children = <Widget>[_toolbar(), _catChips(), const SizedBox(height: 8)];
 
     if (shown.isEmpty) {
       children.add(_empty(_visibleItems.isEmpty
@@ -1409,158 +1534,191 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     return ListView(padding: const EdgeInsets.fromLTRB(12, 4, 12, 24), children: children);
   }
 
-  Widget _addCard() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Row(children: [
-            Expanded(
-              child: TextField(
-                controller: _nameCtrl,
-                decoration: InputDecoration(labelText: tr('lblItem'), hintText: tr('hintItemExample')),
-                onSubmitted: (_) => _add(),
-              ),
+  void _openAddSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(sheetCtx).viewInsets.bottom),
+        child: StatefulBuilder(
+          builder: (context, setSheet) => Container(
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
             ),
-            const SizedBox(width: 8),
-            IconButton.filledTonal(
-              onPressed: _scan,
-              icon: const Icon(Icons.qr_code_scanner),
-              tooltip: tr('titleScan'),
-            ),
-          ]),
-          const SizedBox(height: 10),
-          Row(children: [
-            SizedBox(
-              width: 70,
-              child: TextField(
-                controller: _qtyCtrl,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(labelText: tr('lblQty')),
-              ),
-            ),
-            const SizedBox(width: 8),
-            SizedBox(
-              width: 90,
-              child: DropdownButtonFormField<String>(
-                initialValue: _addUnit,
-                decoration: InputDecoration(labelText: tr('lblUnit')),
-                items: kUnits.map((u) => DropdownMenuItem(value: u, child: Text(u))).toList(),
-                onChanged: (v) => setState(() => _addUnit = v ?? _addUnit),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: DropdownButtonFormField<String>(
-                initialValue: _addCat,
-                decoration: InputDecoration(labelText: tr('lblCategory')),
-                items: kCats.map((c) => DropdownMenuItem(value: c, child: Text(catLabel(c)))).toList(),
-                onChanged: (v) => setState(() => _addCat = v ?? _addCat),
-              ),
-            ),
-          ]),
-          const SizedBox(height: 10),
-          Row(children: [
-            Expanded(
-              child: DropdownButtonFormField<String>(
-                initialValue: _addStatus,
-                decoration: InputDecoration(labelText: tr('lblStatus')),
-                items: [
-                  DropdownMenuItem(value: 'ok', child: Text(tr('statusOkFull'))),
-                  DropdownMenuItem(value: 'low', child: Text(tr('statusLowFull'))),
-                  DropdownMenuItem(value: 'out', child: Text(tr('statusOutFull'))),
-                ],
-                onChanged: (v) => setState(() => _addStatus = v ?? _addStatus),
-              ),
-            ),
-            const SizedBox(width: 8),
-            SizedBox(
-              width: 90,
-              child: TextField(
-                controller: _priceCtrl,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: InputDecoration(labelText: tr('lblPrice'), prefixText: '$_sym ', prefixStyle: const TextStyle(fontSize: 13)),
-              ),
-            ),
-          ]),
-          const SizedBox(height: 10),
-          Row(children: [
-            Expanded(
-              child: DropdownButtonFormField<String>(
-                initialValue: _addLoc.isEmpty ? null : _addLoc,
-                decoration: InputDecoration(labelText: tr('lblLocationOptional')),
-                items: [
-                  ..._locations.map((l) => DropdownMenuItem(value: l, child: Text(l))),
-                  DropdownMenuItem(value: '__new__', child: Text(tr('addNewLocation'))),
-                ],
-                onChanged: (v) async {
-                  if (v == '__new__') {
-                    final added = await _addLocationDialog();
-                    if (added != null) setState(() => _addLoc = added);
-                  } else {
-                    setState(() => _addLoc = v ?? '');
-                  }
-                },
-              ),
-            ),
-          ]),
-          const SizedBox(height: 10),
-          Row(children: [
-            if (_addPhotoPath != null) ...[
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.file(File(_addPhotoPath!), width: 44, height: 44, fit: BoxFit.cover),
-              ),
-              const SizedBox(width: 8),
-            ],
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () async {
-                  final path = await _capturePhoto();
-                  if (path != null) setState(() => _addPhotoPath = path);
-                },
-                icon: const Icon(Icons.camera_alt_outlined),
-                label: Text(_addPhotoPath == null ? tr('btnAddPhoto') : tr('btnRetakePhoto')),
-              ),
-            ),
-            if (_addPhotoPath != null)
-              IconButton(onPressed: () => setState(() => _addPhotoPath = null), icon: const Icon(Icons.clear)),
-          ]),
-          const SizedBox(height: 10),
-          Row(children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () async {
-                  final now = DateTime.now();
-                  final d = await showDatePicker(
-                    context: context,
-                    initialDate: _addExp ?? now,
-                    firstDate: DateTime(now.year - 1),
-                    lastDate: DateTime(now.year + 6),
-                  );
-                  if (d != null) setState(() => _addExp = d);
-                },
-                icon: const Icon(Icons.event),
-                label: Text(_addExp == null
-                    ? tr('lblExpiryOptional')
-                    : '${tr('expPrefix')} ${_addExp!.toIso8601String().substring(0, 10)}'),
-              ),
-            ),
-            if (_addExp != null)
-              IconButton(onPressed: () => setState(() => _addExp = null), icon: const Icon(Icons.clear)),
-          ]),
-          const SizedBox(height: 10),
-          FilledButton.icon(
-            onPressed: _add,
-            icon: const Icon(Icons.add),
-            label: Text(tr('btnAddItem')),
-            style: FilledButton.styleFrom(backgroundColor: kGreen, foregroundColor: Colors.black),
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+            child: SingleChildScrollView(child: _addSheetContent(setSheet)),
           ),
-          const SizedBox(height: 12),
-          _presets(),
-        ]),
+        ),
       ),
     );
+  }
+
+  Widget _addSheetContent(StateSetter setSheet) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Text(tr('btnAddItem'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17)),
+      const SizedBox(height: 14),
+      Row(children: [
+        Expanded(
+          child: TextField(
+            controller: _nameCtrl,
+            autofocus: true,
+            decoration: InputDecoration(labelText: tr('lblItem'), hintText: tr('hintItemExample')),
+            onSubmitted: (_) {
+              if (_nameCtrl.text.trim().isEmpty) return;
+              _add();
+              Navigator.of(context).pop();
+            },
+          ),
+        ),
+        const SizedBox(width: 8),
+        IconButton.filledTonal(
+          onPressed: _scan,
+          icon: const Icon(Icons.qr_code_scanner),
+          tooltip: tr('titleScan'),
+        ),
+      ]),
+      const SizedBox(height: 10),
+      Row(children: [
+        SizedBox(
+          width: 70,
+          child: TextField(
+            controller: _qtyCtrl,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(labelText: tr('lblQty')),
+          ),
+        ),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 90,
+          child: DropdownButtonFormField<String>(
+            initialValue: _addUnit,
+            decoration: InputDecoration(labelText: tr('lblUnit')),
+            items: kUnits.map((u) => DropdownMenuItem(value: u, child: Text(u))).toList(),
+            onChanged: (v) => setSheet(() => _addUnit = v ?? _addUnit),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: DropdownButtonFormField<String>(
+            initialValue: _addCat,
+            decoration: InputDecoration(labelText: tr('lblCategory')),
+            items: kCats.map((c) => DropdownMenuItem(
+                value: c,
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(catIcon(c), size: 16, color: catColor(c)),
+                  const SizedBox(width: 8),
+                  Text(catLabel(c)),
+                ]))).toList(),
+            onChanged: (v) => setSheet(() => _addCat = v ?? _addCat),
+          ),
+        ),
+      ]),
+      const SizedBox(height: 10),
+      Row(children: [
+        Expanded(
+          child: DropdownButtonFormField<String>(
+            initialValue: _addStatus,
+            decoration: InputDecoration(labelText: tr('lblStatus')),
+            items: [
+              DropdownMenuItem(value: 'ok', child: Text(tr('statusOkFull'))),
+              DropdownMenuItem(value: 'low', child: Text(tr('statusLowFull'))),
+              DropdownMenuItem(value: 'out', child: Text(tr('statusOutFull'))),
+            ],
+            onChanged: (v) => setSheet(() => _addStatus = v ?? _addStatus),
+          ),
+        ),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 90,
+          child: TextField(
+            controller: _priceCtrl,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(labelText: tr('lblPrice'), prefixText: '$_sym ', prefixStyle: const TextStyle(fontSize: 13)),
+          ),
+        ),
+      ]),
+      const SizedBox(height: 10),
+      Row(children: [
+        Expanded(
+          child: DropdownButtonFormField<String>(
+            initialValue: _addLoc.isEmpty ? null : _addLoc,
+            decoration: InputDecoration(labelText: tr('lblLocationOptional')),
+            items: [
+              ..._locations.map((l) => DropdownMenuItem(value: l, child: Text(l))),
+              DropdownMenuItem(value: '__new__', child: Text(tr('addNewLocation'))),
+            ],
+            onChanged: (v) async {
+              if (v == '__new__') {
+                final added = await _addLocationDialog();
+                if (added != null) setSheet(() => _addLoc = added);
+              } else {
+                setSheet(() => _addLoc = v ?? '');
+              }
+            },
+          ),
+        ),
+      ]),
+      const SizedBox(height: 10),
+      Row(children: [
+        if (_addPhotoPath != null) ...[
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.file(File(_addPhotoPath!), width: 44, height: 44, fit: BoxFit.cover),
+          ),
+          const SizedBox(width: 8),
+        ],
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () async {
+              final path = await _capturePhoto();
+              if (path != null) setSheet(() => _addPhotoPath = path);
+            },
+            icon: const Icon(Icons.camera_alt_outlined),
+            label: Text(_addPhotoPath == null ? tr('btnAddPhoto') : tr('btnRetakePhoto')),
+          ),
+        ),
+        if (_addPhotoPath != null)
+          IconButton(onPressed: () => setSheet(() => _addPhotoPath = null), icon: const Icon(Icons.clear)),
+      ]),
+      const SizedBox(height: 10),
+      Row(children: [
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () async {
+              final now = DateTime.now();
+              final d = await showDatePicker(
+                context: context,
+                initialDate: _addExp ?? now,
+                firstDate: DateTime(now.year - 1),
+                lastDate: DateTime(now.year + 6),
+              );
+              if (d != null) setSheet(() => _addExp = d);
+            },
+            icon: const Icon(Icons.event),
+            label: Text(_addExp == null
+                ? tr('lblExpiryOptional')
+                : '${tr('expPrefix')} ${_addExp!.toIso8601String().substring(0, 10)}'),
+          ),
+        ),
+        if (_addExp != null)
+          IconButton(onPressed: () => setSheet(() => _addExp = null), icon: const Icon(Icons.clear)),
+      ]),
+      const SizedBox(height: 14),
+      FilledButton.icon(
+        onPressed: () {
+          if (_nameCtrl.text.trim().isEmpty) return;
+          _add();
+          Navigator.of(context).pop();
+        },
+        icon: const Icon(Icons.add),
+        label: Text(tr('btnAddItem')),
+        style: FilledButton.styleFrom(backgroundColor: kBrand, foregroundColor: Colors.white),
+      ),
+      const SizedBox(height: 12),
+      _presets(),
+    ]);
   }
 
   Widget _presets() {
@@ -1578,8 +1736,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           scrollDirection: Axis.horizontal,
           itemCount: list.length,
           separatorBuilder: (_, __) => const SizedBox(width: 8),
-          itemBuilder: (_, i) =>
-              ActionChip(label: Text('+ ${list[i]}'), onPressed: () => _quickAdd(list[i])),
+          itemBuilder: (_, i) => ActionChip(
+              label: Text('+ ${list[i]}'),
+              onPressed: () {
+                _quickAdd(list[i]);
+                Navigator.of(context).pop();
+              }),
         ),
       ),
     ]);
@@ -1625,9 +1787,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           final label = c == 'All' ? tr('chipAll') : catLabel(c);
           final selected = (c == 'All' && _filterCat.isEmpty) || c == _filterCat;
           final count = c == 'All' ? _visibleItems.length : _visibleItems.where((it) => it.cat == c).length;
+          final tint = c == 'All' ? kBrand : catColor(c);
           return ChoiceChip(
-            label: Text(count > 0 ? '$label ($count)' : label),
+            label: Text(count > 0 ? '$label ($count)' : label,
+                style: selected ? TextStyle(color: tint, fontWeight: FontWeight.w700) : null),
             selected: selected,
+            selectedColor: tint.withValues(alpha: .15),
+            showCheckmark: false,
+            side: selected ? BorderSide(color: tint.withValues(alpha: .4)) : null,
             onSelected: (_) => setState(() => _filterCat = c == 'All' ? '' : c),
           );
         },
@@ -1691,9 +1858,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   Widget _catHeader(String cat, int n) => Padding(
         padding: const EdgeInsets.fromLTRB(4, 16, 4, 6),
         child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text(catLabel(cat).toUpperCase(),
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800,
-                  letterSpacing: .6, color: Theme.of(context).hintColor)),
+          Row(children: [
+            Icon(catIcon(cat), size: 14, color: catColor(cat)),
+            const SizedBox(width: 6),
+            Text(catLabel(cat).toUpperCase(),
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800,
+                    letterSpacing: .6, color: catColor(cat))),
+          ]),
           Text('$n', style: TextStyle(color: Theme.of(context).hintColor)),
         ]),
       );
@@ -1715,16 +1886,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   Widget _itemTile(PantryItem it) {
-    final col = _statusColor(it.status);
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border(left: BorderSide(color: col, width: 4)),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        padding: const EdgeInsets.fromLTRB(10, 8, 4, 8),
-        child: Row(children: [
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      padding: const EdgeInsets.fromLTRB(10, 10, 4, 10),
+      child: Row(children: [
           _photoThumb(it),
           const SizedBox(width: 8),
           _qtyStepper(it),
@@ -1732,40 +1901,32 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(it.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-              const SizedBox(height: 3),
-              Row(children: [
-                Flexible(
-                  child: Text(it.location.isEmpty ? catLabel(it.cat) : '${catLabel(it.cat)} · ${it.location}',
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor)),
+              const SizedBox(height: 4),
+              Wrap(spacing: 6, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: catColor(it.cat).withValues(alpha: .15),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(catLabel(it.cat),
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: catColor(it.cat))),
                 ),
+                if (it.location.isNotEmpty)
+                  Text(it.location, style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor)),
                 _expChip(it),
                 if (it.price > 0)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 6),
-                    child: Text(_fmt(it.price * it.qty),
-                        style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor)),
-                  ),
+                  Text(_fmt(it.price * it.qty), style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor)),
               ]),
             ]),
           ),
-          DropdownButton<String>(
-            value: it.status,
-            underline: const SizedBox(),
-            onChanged: (v) => _setStatus(it, v ?? it.status),
-            items: const [
-              DropdownMenuItem(value: 'ok', child: Text('✅')),
-              DropdownMenuItem(value: 'low', child: Text('⚠️')),
-              DropdownMenuItem(value: 'out', child: Text('❌')),
-            ],
-          ),
+          _statusBadge(it),
           IconButton(
             icon: const Icon(Icons.delete_outline, size: 20),
             color: Theme.of(context).hintColor,
             onPressed: () => _delete(it),
           ),
-        ]),
-      ),
+      ]),
     );
   }
 
@@ -1780,8 +1941,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             ? Image.file(File(it.photoPath!), width: 40, height: 40, fit: BoxFit.cover)
             : Container(
                 width: 40, height: 40,
-                color: Theme.of(context).dividerColor.withValues(alpha: .3),
-                child: Icon(Icons.camera_alt_outlined, size: 18, color: Theme.of(context).hintColor),
+                color: catColor(it.cat).withValues(alpha: .15),
+                child: Icon(catIcon(it.cat), size: 18, color: catColor(it.cat)),
               ),
       ),
     );
@@ -2080,7 +2241,13 @@ class _PurchaseHistoryPageState extends State<PurchaseHistoryPage> {
                   child: DropdownButtonFormField<String>(
                     initialValue: cat,
                     decoration: InputDecoration(labelText: tr('lblCategory')),
-                    items: kCats.map((c) => DropdownMenuItem(value: c, child: Text(catLabel(c)))).toList(),
+                    items: kCats.map((c) => DropdownMenuItem(
+                    value: c,
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(catIcon(c), size: 16, color: catColor(c)),
+                      const SizedBox(width: 8),
+                      Text(catLabel(c)),
+                    ]))).toList(),
                     onChanged: (v) => setSheet(() => cat = v ?? cat),
                   ),
                 ),
@@ -2385,7 +2552,7 @@ class _SheetsSyncPageState extends State<SheetsSyncPage> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     decoration: BoxDecoration(
-                      color: kGreen.withValues(alpha: .12),
+                      color: kBrand.withValues(alpha: .12),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text((_deviceCode!['user_code'] ?? '').toString(),
@@ -2530,7 +2697,7 @@ class _ScanPageState extends State<ScanPage> {
             child: Container(
               width: 240, height: 160,
               decoration: BoxDecoration(
-                border: Border.all(color: kGreen, width: 3),
+                border: Border.all(color: kBrand, width: 3),
                 borderRadius: BorderRadius.circular(14),
               ),
             ),
