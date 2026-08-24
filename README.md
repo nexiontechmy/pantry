@@ -4,8 +4,9 @@ A household groceries and inventory tracker for Android, built with Flutter. Sca
 
 ## Features
 
+- **Custom branded UI** — bottom navigation (Home / Locations / Shopping) with a floating add button, hero stat cards, and a color-coded category system, themed around the app's own logo
 - **Barcode scanning** — scan to add items, with automatic name lookup (Open Food Facts) and a local barcode→name memory that works offline and covers products the online database doesn't have
-- **Categories** — Produce, Dairy, Meat & Fish, Pantry, Frozen, Bakery, Drinks, Snacks, Toiletries, Cleaning Supplies, Personal Care, Household, Other
+- **Categories** — Produce, Dairy, Meat & Fish, Pantry, Frozen, Bakery, Drinks, Snacks, Toiletries, Cleaning Supplies, Personal Care, Household, Other — each with its own color and icon
 - **Units** — track quantity in pcs, g, kg, ml, L, pack, box, bottle, or can
 - **Expiry tracking** — see what's expiring soon at a glance, with a dedicated shopping list for anything running low, out, or about to expire
 - **Storage locations** — tag items with freeform locations (e.g. "Kitchen Fridge", "Garage Freezer") and browse inventory by location
