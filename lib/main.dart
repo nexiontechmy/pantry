@@ -13,12 +13,18 @@ import 'package:path_provider/path_provider.dart';
 void main() => runApp(const PantryApp());
 
 const List<String> kCats = [
-  'Produce', 'Dairy', 'Meat & Fish', 'Pantry', 'Frozen',
-  'Bakery', 'Drinks', 'Snacks',
+  'Produce', 'Dairy', 'Meat & Fish',
+  'Rice & Grains', 'Noodles & Pasta', 'Canned & Jarred Goods',
+  'Sauces & Condiments', 'Spices & Seasoning', 'Baking Supplies',
+  'Pantry', 'Frozen', 'Bakery', 'Drinks', 'Snacks',
   'Toiletries', 'Cleaning Supplies', 'Personal Care',
   'Household', 'Other'
 ];
-const List<String> kUnits = ['pcs', 'g', 'kg', 'ml', 'L', 'pack', 'box', 'bottle', 'can'];
+const List<String> kUnits = [
+  'pcs', 'g', 'kg', 'ml', 'L', 'oz', 'lb', 'gallon', 'dozen',
+  'pack', 'box', 'bottle', 'can', 'jar', 'bag', 'carton',
+  'roll', 'tube', 'sachet', 'tablet', 'set', 'pair', 'bunch',
+];
 const List<String> kDefaultLocations = [
   'Kitchen Fridge', 'Kitchen Freezer', 'Kitchen Pantry',
   'Bathroom Cabinet', 'Laundry Room', 'Garage Storage',
@@ -26,7 +32,9 @@ const List<String> kDefaultLocations = [
 const List<String> kPresets = [
   'Milk', 'Eggs', 'Bread', 'Butter', 'Cheese', 'Yogurt',
   'Coffee', 'Tea', 'Water', 'Juice',
-  'Rice', 'Pasta', 'Flour', 'Sugar', 'Salt', 'Cooking oil', 'Cereal',
+  'Rice', 'Noodles', 'Instant noodles', 'Pasta', 'Flour', 'Sugar', 'Salt',
+  'Cooking oil', 'Soy sauce', 'Oyster sauce', 'Black pepper', 'Cereal',
+  'Canned tuna', 'Canned beans',
   'Bananas', 'Apples', 'Tomatoes', 'Onions', 'Potatoes', 'Lettuce',
   'Chicken', 'Beef', 'Fish',
   'Chips', 'Cookies',
@@ -36,8 +44,13 @@ const Map<String, String> kCatGuess = {
   'Milk': 'Dairy', 'Eggs': 'Dairy', 'Butter': 'Dairy', 'Cheese': 'Dairy', 'Yogurt': 'Dairy',
   'Bread': 'Bakery',
   'Coffee': 'Drinks', 'Tea': 'Drinks', 'Water': 'Drinks', 'Juice': 'Drinks',
-  'Rice': 'Pantry', 'Pasta': 'Pantry', 'Flour': 'Pantry', 'Sugar': 'Pantry',
-  'Salt': 'Pantry', 'Cooking oil': 'Pantry', 'Cereal': 'Pantry',
+  'Rice': 'Rice & Grains',
+  'Noodles': 'Noodles & Pasta', 'Instant noodles': 'Noodles & Pasta', 'Pasta': 'Noodles & Pasta',
+  'Flour': 'Baking Supplies', 'Sugar': 'Baking Supplies',
+  'Salt': 'Spices & Seasoning', 'Black pepper': 'Spices & Seasoning',
+  'Cooking oil': 'Sauces & Condiments', 'Soy sauce': 'Sauces & Condiments', 'Oyster sauce': 'Sauces & Condiments',
+  'Canned tuna': 'Canned & Jarred Goods', 'Canned beans': 'Canned & Jarred Goods',
+  'Cereal': 'Pantry',
   'Bananas': 'Produce', 'Apples': 'Produce', 'Tomatoes': 'Produce',
   'Onions': 'Produce', 'Potatoes': 'Produce', 'Lettuce': 'Produce',
   'Chicken': 'Meat & Fish', 'Beef': 'Meat & Fish', 'Fish': 'Meat & Fish',
@@ -75,6 +88,12 @@ const Map<String, Map<String, String>> kCatTr = {
   'Produce': {'zh': '生鲜蔬果', 'ms': 'Sayur & Buah'},
   'Dairy': {'zh': '乳制品', 'ms': 'Tenusu'},
   'Meat & Fish': {'zh': '肉类与海鲜', 'ms': 'Daging & Ikan'},
+  'Rice & Grains': {'zh': '大米谷物', 'ms': 'Beras & Bijirin'},
+  'Noodles & Pasta': {'zh': '面条意面', 'ms': 'Mi & Pasta'},
+  'Canned & Jarred Goods': {'zh': '罐头与瓶装食品', 'ms': 'Makanan Tin & Balang'},
+  'Sauces & Condiments': {'zh': '酱料调味品', 'ms': 'Sos & Perencah'},
+  'Spices & Seasoning': {'zh': '香料调味', 'ms': 'Rempah & Perasa'},
+  'Baking Supplies': {'zh': '烘焙材料', 'ms': 'Bekalan Bakeri'},
   'Pantry': {'zh': '干货食材', 'ms': 'Bekalan Dapur'},
   'Frozen': {'zh': '冷冻食品', 'ms': 'Makanan Beku'},
   'Bakery': {'zh': '烘焙食品', 'ms': 'Bakeri'},
@@ -92,6 +111,12 @@ const Map<String, Color> kCatColors = {
   'Produce': Color(0xFF639922),
   'Dairy': Color(0xFF378ADD),
   'Meat & Fish': Color(0xFFD85A30),
+  'Rice & Grains': Color(0xFFC9A227),
+  'Noodles & Pasta': Color(0xFFE0793F),
+  'Canned & Jarred Goods': Color(0xFF6B7280),
+  'Sauces & Condiments': Color(0xFFB5442E),
+  'Spices & Seasoning': Color(0xFF8B5E3C),
+  'Baking Supplies': Color(0xFFDB7093),
   'Pantry': Color(0xFFBA7517),
   'Frozen': Color(0xFF185FA5),
   'Bakery': Color(0xFF993C1D),
@@ -107,6 +132,12 @@ const Map<String, IconData> kCatIcons = {
   'Produce': Icons.eco,
   'Dairy': Icons.egg,
   'Meat & Fish': Icons.set_meal,
+  'Rice & Grains': Icons.rice_bowl,
+  'Noodles & Pasta': Icons.ramen_dining,
+  'Canned & Jarred Goods': Icons.inventory_2,
+  'Sauces & Condiments': Icons.local_bar,
+  'Spices & Seasoning': Icons.grain,
+  'Baking Supplies': Icons.cake,
   'Pantry': Icons.kitchen,
   'Frozen': Icons.ac_unit,
   'Bakery': Icons.bakery_dining,
@@ -254,6 +285,17 @@ const Map<String, Map<String, String>> kTr = {
   'navShopping': {'en': 'Shopping', 'zh': '购物', 'ms': 'Beli-belah'},
   'navMore': {'en': 'More', 'zh': '更多', 'ms': 'Lagi'},
   'statNeedAttention': {'en': 'need attention', 'zh': '需要留意', 'ms': 'perlu perhatian'},
+  'titleEditItem': {'en': 'Edit item', 'zh': '编辑物品', 'ms': 'Edit barang'},
+  'btnDeleteItem': {'en': 'Delete item', 'zh': '删除物品', 'ms': 'Padam barang'},
+  'titleExpiringSoon': {'en': 'Expiring soon', 'zh': '即将过期', 'ms': 'Akan luput'},
+  'dlgDeleteItemTitle': {'en': 'Delete this item?', 'zh': '删除此物品？', 'ms': 'Padam barang ini?'},
+  'dlgDeleteItemBody': {'en': 'You can restore it later from "Recently deleted" if you change your mind.', 'zh': '如果改变主意，您之后可以从"最近删除"中恢复它。', 'ms': 'Anda boleh memulihkannya kemudian daripada "Baru dipadam" jika berubah fikiran.'},
+  'menuRecentlyDeleted': {'en': 'Recently deleted', 'zh': '最近删除', 'ms': 'Baru dipadam'},
+  'emptyRecentlyDeleted': {'en': 'Nothing in recently deleted', 'zh': '最近删除中没有物品', 'ms': 'Tiada apa dalam baru dipadam'},
+  'btnRestore': {'en': 'Restore', 'zh': '恢复', 'ms': 'Pulihkan'},
+  'btnDeleteForever': {'en': 'Delete forever', 'zh': '永久删除', 'ms': 'Padam selamanya'},
+  'snackRestored': {'en': 'Restored', 'zh': '已恢复', 'ms': 'Dipulihkan'},
+  'tipFlash': {'en': 'Flash', 'zh': '闪光灯', 'ms': 'Lampu kilat'},
 };
 
 class PantryItem {
@@ -678,6 +720,15 @@ class _PantryAppState extends State<PantryApp> {
       themeMode: _mode,
       theme: _theme(Brightness.light),
       darkTheme: _theme(Brightness.dark),
+      // Clamp the system font-size setting so an extreme accessibility text
+      // scale on some phones can't blow up the compact card layouts below.
+      builder: (context, child) {
+        final mq = MediaQuery.of(context);
+        return MediaQuery(
+          data: mq.copyWith(textScaler: mq.textScaler.clamp(minScaleFactor: 0.85, maxScaleFactor: 1.2)),
+          child: child!,
+        );
+      },
       home: _loaded
           ? HomePage(isDark: _mode == ThemeMode.dark, onToggleTheme: _toggleTheme)
           : const Scaffold(body: Center(child: CircularProgressIndicator())),
@@ -1238,10 +1289,66 @@ class _HomePageState extends State<HomePage> {
                       onSignedOut: () { setState(() {}); },
                     )));
               }),
+          ListTile(leading: const Icon(Icons.restore_from_trash_outlined), title: Text(tr('menuRecentlyDeleted')),
+              onTap: _openRecentlyDeleted),
           ListTile(leading: const Icon(Icons.delete_outline, color: kDanger),
               title: Text(tr('menuDeleteAll')),
               onTap: _confirmClear),
         ]),
+      ),
+    ));
+  }
+
+  void _restoreItem(PantryItem it) {
+    setState(() { it.deleted = false; it.touch(); });
+    _persist();
+    _snack(tr('snackRestored'));
+  }
+
+  void _deleteForever(PantryItem it) {
+    setState(() => _items.remove(it));
+    _persist();
+  }
+
+  void _openRecentlyDeleted() {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => StatefulBuilder(
+        builder: (context, setPage) {
+          final deleted = _items.where((i) => i.deleted).toList()
+            ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+          return Scaffold(
+            appBar: AppBar(title: Text(tr('menuRecentlyDeleted'))),
+            body: deleted.isEmpty
+                ? Center(child: Text(tr('emptyRecentlyDeleted'), style: TextStyle(color: Theme.of(context).hintColor)))
+                : ListView.builder(
+                    padding: const EdgeInsets.all(12),
+                    itemCount: deleted.length,
+                    itemBuilder: (_, i) {
+                      final it = deleted[i];
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: ListTile(
+                          title: Text(it.name, style: const TextStyle(fontWeight: FontWeight.w700)),
+                          subtitle: Text(catLabel(it.cat)),
+                          trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                            IconButton(
+                              tooltip: tr('btnDeleteForever'),
+                              icon: const Icon(Icons.delete_forever_outlined, color: kDanger),
+                              onPressed: () { _deleteForever(it); setPage(() {}); },
+                            ),
+                            FilledButton.icon(
+                              onPressed: () { _restoreItem(it); setPage(() {}); },
+                              icon: const Icon(Icons.restore, size: 18),
+                              label: Text(tr('btnRestore')),
+                              style: FilledButton.styleFrom(backgroundColor: kBrand, foregroundColor: Colors.white),
+                            ),
+                          ]),
+                        ),
+                      );
+                    },
+                  ),
+          );
+        },
       ),
     ));
   }
@@ -1372,6 +1479,10 @@ class _HomePageState extends State<HomePage> {
           return c != 0 ? c : a.cat.compareTo(b.cat);
         });
 
+  List<PantryItem> get _expiringSoonList =>
+      _visibleItems.where((i) => i.expiringSoon).toList()
+        ..sort((a, b) => (a.daysLeft ?? 1 << 30).compareTo(b.daysLeft ?? 1 << 30));
+
   @override
   Widget build(BuildContext context) {
     final visible = _visibleItems;
@@ -1496,13 +1607,60 @@ class _HomePageState extends State<HomePage> {
   }
 
   // ---- Inventory tab ----
+  Widget _expiringSoonBanner() {
+    final list = _expiringSoonList;
+    if (list.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Icon(Icons.access_time_filled, size: 15, color: kPurple),
+          const SizedBox(width: 6),
+          Text('${tr('titleExpiringSoon')} (${list.length})',
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kPurple)),
+        ]),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 74,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: list.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (_, i) {
+              final it = list[i];
+              return InkWell(
+                onTap: () => _openEditSheet(it),
+                borderRadius: BorderRadius.circular(14),
+                child: Container(
+                  width: 132,
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: kPurple.withValues(alpha: .12),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: kPurple.withValues(alpha: .3)),
+                  ),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                    Text(it.name, maxLines: 1, overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+                    const SizedBox(height: 6),
+                    _expChip(it),
+                  ]),
+                ),
+              );
+            },
+          ),
+        ),
+      ]),
+    );
+  }
+
   Widget _inventoryTab() {
     final q = _searchCtrl.text.trim().toLowerCase();
     var shown = _visibleItems.where((i) =>
         (q.isEmpty || i.name.toLowerCase().contains(q)) &&
         (_filterCat.isEmpty || i.cat == _filterCat)).toList();
 
-    final children = <Widget>[_toolbar(), _catChips(), const SizedBox(height: 8)];
+    final children = <Widget>[_expiringSoonBanner(), _toolbar(), _catChips(), const SizedBox(height: 8)];
 
     if (shown.isEmpty) {
       children.add(_empty(_visibleItems.isEmpty
@@ -1532,6 +1690,193 @@ class _HomePageState extends State<HomePage> {
     }
 
     return ListView(padding: const EdgeInsets.fromLTRB(12, 4, 12, 24), children: children);
+  }
+
+  Future<void> _openEditSheet(PantryItem it) async {
+    final nameCtrl = TextEditingController(text: it.name);
+    final qtyCtrl = TextEditingController(text: '${it.qty}');
+    final priceCtrl = TextEditingController(text: it.price == 0 ? '' : it.price.toString());
+    String cat = it.cat;
+    String unit = kUnits.contains(it.unit) ? it.unit : kUnits.first;
+    String status = it.status;
+    String loc = it.location;
+    DateTime? exp = it.exp;
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(sheetCtx).viewInsets.bottom),
+        child: StatefulBuilder(
+          builder: (context, setSheet) => Container(
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+            child: SingleChildScrollView(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                Text(tr('titleEditItem'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17)),
+                const SizedBox(height: 14),
+                TextField(controller: nameCtrl, autofocus: true, decoration: InputDecoration(labelText: tr('lblItem'))),
+                const SizedBox(height: 10),
+                Row(children: [
+                  SizedBox(
+                    width: 70,
+                    child: TextField(
+                      controller: qtyCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(labelText: tr('lblQty')),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: 90,
+                    child: DropdownButtonFormField<String>(
+                      initialValue: unit,
+                      decoration: InputDecoration(labelText: tr('lblUnit')),
+                      items: kUnits.map((u) => DropdownMenuItem(value: u, child: Text(u))).toList(),
+                      onChanged: (v) => setSheet(() => unit = v ?? unit),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      initialValue: cat,
+                      decoration: InputDecoration(labelText: tr('lblCategory')),
+                      items: kCats.map((c) => DropdownMenuItem(
+                          value: c,
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            Icon(catIcon(c), size: 16, color: catColor(c)),
+                            const SizedBox(width: 8),
+                            Text(catLabel(c)),
+                          ]))).toList(),
+                      onChanged: (v) => setSheet(() => cat = v ?? cat),
+                    ),
+                  ),
+                ]),
+                const SizedBox(height: 10),
+                Row(children: [
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      initialValue: status,
+                      decoration: InputDecoration(labelText: tr('lblStatus')),
+                      items: [
+                        DropdownMenuItem(value: 'ok', child: Text(tr('statusOkFull'))),
+                        DropdownMenuItem(value: 'low', child: Text(tr('statusLowFull'))),
+                        DropdownMenuItem(value: 'out', child: Text(tr('statusOutFull'))),
+                      ],
+                      onChanged: (v) => setSheet(() => status = v ?? status),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: 90,
+                    child: TextField(
+                      controller: priceCtrl,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: InputDecoration(labelText: tr('lblPrice'), prefixText: '$_sym ', prefixStyle: const TextStyle(fontSize: 13)),
+                    ),
+                  ),
+                ]),
+                const SizedBox(height: 10),
+                DropdownButtonFormField<String>(
+                  initialValue: loc.isEmpty ? null : loc,
+                  decoration: InputDecoration(labelText: tr('lblLocationOptional')),
+                  items: [
+                    ..._locations.map((l) => DropdownMenuItem(value: l, child: Text(l))),
+                    DropdownMenuItem(value: '__new__', child: Text(tr('addNewLocation'))),
+                  ],
+                  onChanged: (v) async {
+                    if (v == '__new__') {
+                      final added = await _addLocationDialog();
+                      if (added != null) setSheet(() => loc = added);
+                    } else {
+                      setSheet(() => loc = v ?? '');
+                    }
+                  },
+                ),
+                const SizedBox(height: 10),
+                Row(children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        final now = DateTime.now();
+                        final d = await showDatePicker(
+                          context: context,
+                          initialDate: exp ?? now,
+                          firstDate: DateTime(now.year - 1),
+                          lastDate: DateTime(now.year + 6),
+                        );
+                        if (d != null) setSheet(() => exp = d);
+                      },
+                      icon: const Icon(Icons.event),
+                      label: Text(exp == null
+                          ? tr('lblExpiryOptional')
+                          : '${tr('expPrefix')} ${exp!.toIso8601String().substring(0, 10)}'),
+                    ),
+                  ),
+                  if (exp != null)
+                    IconButton(onPressed: () => setSheet(() => exp = null), icon: const Icon(Icons.clear)),
+                ]),
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: () => _editItemPhoto(it),
+                  icon: const Icon(Icons.camera_alt_outlined),
+                  label: Text(it.photoPath == null ? tr('btnAddPhoto') : tr('btnRetakePhoto')),
+                ),
+                const SizedBox(height: 10),
+                TextButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    _delete(it);
+                  },
+                  icon: const Icon(Icons.delete_outline, size: 18, color: kDanger),
+                  label: Text(tr('btnDeleteItem'), style: const TextStyle(color: kDanger)),
+                ),
+                const SizedBox(height: 8),
+                Row(children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: Text(tr('btnCancel')),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: () {
+                        if (nameCtrl.text.trim().isEmpty) return;
+                        setState(() {
+                          it.name = nameCtrl.text.trim();
+                          it.qty = int.tryParse(qtyCtrl.text) ?? it.qty;
+                          it.unit = unit;
+                          it.cat = cat;
+                          it.status = status;
+                          it.price = double.tryParse(priceCtrl.text) ?? 0;
+                          it.location = loc;
+                          it.exp = exp;
+                          it.touch();
+                        });
+                        _persist();
+                        Navigator.of(context).pop();
+                      },
+                      icon: const Icon(Icons.check),
+                      label: Text(tr('btnSaveChanges')),
+                      style: FilledButton.styleFrom(backgroundColor: kBrand, foregroundColor: Colors.white),
+                    ),
+                  ),
+                ]),
+              ]),
+            ),
+          ),
+        ),
+      ),
+    );
+    nameCtrl.dispose();
+    qtyCtrl.dispose();
+    priceCtrl.dispose();
   }
 
   void _openAddSheet() {
@@ -1886,47 +2231,82 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _itemTile(PantryItem it) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(18),
+    return Dismissible(
+      key: ValueKey(it.id),
+      direction: DismissDirection.endToStart,
+      dismissThresholds: const {DismissDirection.endToStart: 0.55},
+      background: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 22),
+        decoration: BoxDecoration(color: kDanger, borderRadius: BorderRadius.circular(18)),
+        child: const Icon(Icons.delete, color: Colors.white),
       ),
-      padding: const EdgeInsets.fromLTRB(10, 10, 4, 10),
-      child: Row(children: [
-          _photoThumb(it),
-          const SizedBox(width: 8),
-          _qtyStepper(it),
-          const SizedBox(width: 10),
-          Expanded(
+      confirmDismiss: (_) => showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: Text(tr('dlgDeleteItemTitle')),
+          content: Text(tr('dlgDeleteItemBody')),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: Text(tr('btnCancel'))),
+            TextButton(onPressed: () => Navigator.pop(context, true), child: Text(tr('btnDelete'), style: const TextStyle(color: kDanger))),
+          ],
+        ),
+      ).then((v) => v ?? false),
+      onDismissed: (_) => _delete(it),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: InkWell(
+          onTap: () => _openEditSheet(it),
+          borderRadius: BorderRadius.circular(18),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(it.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-              const SizedBox(height: 4),
-              Wrap(spacing: 6, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: catColor(it.cat).withValues(alpha: .15),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(catLabel(it.cat),
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: catColor(it.cat))),
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                _photoThumb(it),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(it.name, maxLines: 2, overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                    const SizedBox(height: 6),
+                    Wrap(spacing: 6, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+                      Container(
+                        constraints: const BoxConstraints(maxWidth: 120),
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: catColor(it.cat).withValues(alpha: .15),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(catLabel(it.cat), maxLines: 1, overflow: TextOverflow.ellipsis, softWrap: false,
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: catColor(it.cat))),
+                      ),
+                      if (it.location.isNotEmpty)
+                        Text(it.location, maxLines: 1, overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor)),
+                      _expChip(it),
+                      if (it.price > 0)
+                        Text(_fmt(it.price * it.qty), style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor)),
+                    ]),
+                  ]),
                 ),
-                if (it.location.isNotEmpty)
-                  Text(it.location, style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor)),
-                _expChip(it),
-                if (it.price > 0)
-                  Text(_fmt(it.price * it.qty), style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor)),
+                const SizedBox(width: 8),
+                _statusBadge(it),
+              ]),
+              const SizedBox(height: 10),
+              Row(children: [
+                _qtyStepper(it),
+                const Spacer(),
+                Icon(Icons.chevron_right, size: 20, color: Theme.of(context).hintColor),
               ]),
             ]),
           ),
-          _statusBadge(it),
-          IconButton(
-            icon: const Icon(Icons.delete_outline, size: 20),
-            color: Theme.of(context).hintColor,
-            onPressed: () => _delete(it),
-          ),
-      ]),
+        ),
+      ),
     );
   }
 
@@ -1952,10 +2332,10 @@ class _HomePageState extends State<HomePage> {
         _miniBtn(Icons.remove, () => _changeQty(it, -1)),
         InkWell(
           onTap: () => _editQtyDialog(it),
-          child: SizedBox(
-            width: it.unit.isEmpty ? 26 : 42,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minWidth: it.unit.isEmpty ? 26 : 42, maxWidth: 64),
             child: Text(it.unit.isEmpty ? '${it.qty}' : '${it.qty}${it.unit}',
-                textAlign: TextAlign.center,
+                textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
           ),
         ),
@@ -2645,15 +3025,14 @@ class ScanPage extends StatefulWidget {
 }
 
 class _ScanPageState extends State<ScanPage> {
+  // No `formats` restriction — detect any barcode symbology ML Kit supports,
+  // since limiting to a handful of formats can silently miss whatever a
+  // given product actually uses (nothing appears, no error).
   final MobileScannerController _controller = MobileScannerController(
     detectionSpeed: DetectionSpeed.normal,
-    formats: const [
-      BarcodeFormat.ean13, BarcodeFormat.ean8,
-      BarcodeFormat.upcA, BarcodeFormat.upcE,
-      BarcodeFormat.code128, BarcodeFormat.code39, BarcodeFormat.itf,
-    ],
   );
   bool _done = false;
+  bool _torchOn = false;
 
   @override
   void dispose() {
@@ -2676,6 +3055,14 @@ class _ScanPageState extends State<ScanPage> {
       appBar: AppBar(
         title: Text(tr('titleScan')),
         actions: [
+          IconButton(
+            tooltip: tr('tipFlash'),
+            icon: Icon(_torchOn ? Icons.flash_on : Icons.flash_off),
+            onPressed: () {
+              _controller.toggleTorch();
+              setState(() => _torchOn = !_torchOn);
+            },
+          ),
           IconButton(
             tooltip: tr('btnTypeManually'),
             icon: const Icon(Icons.keyboard),
