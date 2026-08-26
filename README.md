@@ -11,14 +11,16 @@ A household groceries and inventory tracker for Android, built with Flutter. Sca
 ## Features
 
 - **Custom branded UI** — bottom navigation (Home / Locations / Shopping) with a floating add button, hero stat cards, and a color-coded category system, themed around the app's own logo
-- **Barcode scanning** — scan to add items, with automatic name lookup (Open Food Facts) and a local barcode→name memory that works offline and covers products the online database doesn't have
-- **Categories** — Produce, Dairy, Meat & Fish, Pantry, Frozen, Bakery, Drinks, Snacks, Toiletries, Cleaning Supplies, Personal Care, Household, Other — each with its own color and icon
-- **Units** — track quantity in pcs, g, kg, ml, L, pack, box, bottle, or can
-- **Expiry tracking** — see what's expiring soon at a glance, with a dedicated shopping list for anything running low, out, or about to expire
+- **Barcode scanning** — scan to add items, with a flashlight toggle for low light, automatic name lookup (Open Food Facts), and a local barcode→name memory that works offline and covers products the online database doesn't have
+- **Categories** — Produce, Dairy, Meat & Fish, Rice & Grains, Noodles & Pasta, Canned & Jarred Goods, Sauces & Condiments, Spices & Seasoning, Baking Supplies, Pantry, Frozen, Bakery, Drinks, Snacks, Toiletries, Cleaning Supplies, Personal Care, Household, Other — each with its own color and icon
+- **Units** — 23 options covering pcs, weight, volume, and common packaging (g, kg, ml, L, oz, lb, gallon, dozen, pack, box, bottle, can, jar, bag, carton, roll, tube, sachet, tablet, set, pair, bunch)
+- **Full item editing** — tap any item to edit every field (name, qty, unit, category, status, price, location, expiry, photo), not just add it once and be stuck
+- **Expiry tracking** — a dedicated "Expiring soon" strip on the Home screen surfaces anything close to its expiry date, plus a shopping list for whatever's running low, out, or about to expire
 - **Storage locations** — tag items with freeform locations (e.g. "Kitchen Fridge", "Garage Freezer") and browse inventory by location
 - **Photos** — attach a photo to any item (stored locally on-device)
 - **Consume / deduct flow** — scan or tap an item to mark it used, without digging through a form
 - **Purchase history** — every addition is logged, and past entries can be edited or deleted if something was recorded wrong
+- **Safer deletes** — swiping an item to delete requires confirmation, and a "Recently deleted" screen lets you restore (or permanently remove) anything soft-deleted
 - **Multi-currency** — MYR by default, switchable to USD, SGD, EUR, GBP, JPY, CNY, IDR, THB, AUD
 - **Multi-language UI** — English, Chinese (中文), and Malay (Bahasa Melayu)
 - **Google Sheets sync** — connect a Google account and link a spreadsheet to back up and share your inventory across devices. Sync merges changes per item (newest edit wins, nothing is silently overwritten) so multiple household members can use the app against the same spreadsheet without clobbering each other's edits
