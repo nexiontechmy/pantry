@@ -58,6 +58,10 @@ Sync is optional — the app works fully offline without it. To enable it for yo
 
 (These credentials aren't confidential for this client type — see [Google's docs](https://developers.google.com/identity/protocols/oauth2/limited-input-device) — but if you'd rather keep your own out of a public fork, move them into a separate gitignored file instead.)
 
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for a dated history of what's changed.
+
 ## License
 
 Personal project, no license specified.
