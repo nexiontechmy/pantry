@@ -9,6 +9,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
 void main() => runApp(const PantryApp());
 
@@ -152,6 +153,35 @@ const Map<String, IconData> kCatIcons = {
 Color catColor(String cat) => kCatColors[cat] ?? kCatColors['Other']!;
 IconData catIcon(String cat) => kCatIcons[cat] ?? Icons.category;
 
+// ---------------------------------------------------------------------------
+// Human-friendly date/time formatting (replaces raw ISO "2026-08-26" strings).
+const List<String> _enMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const List<String> _msMonths = ['Jan', 'Feb', 'Mac', 'Apr', 'Mei', 'Jun', 'Jul', 'Ogo', 'Sep', 'Okt', 'Nov', 'Dis'];
+
+/// Day + month + year, e.g. "26 Aug 2026" / "26 Ogo 2026" / "2026年8月26日".
+String humanDate(DateTime d) {
+  if (gLang == 'zh') return '${d.year}年${d.month}月${d.day}日';
+  final months = gLang == 'ms' ? _msMonths : _enMonths;
+  return '${d.day} ${months[d.month - 1]} ${d.year}';
+}
+
+/// Day + month only (no year), for compact chips, e.g. "26 Aug" / "8月26日".
+String humanDateShort(DateTime d) {
+  if (gLang == 'zh') return '${d.month}月${d.day}日';
+  final months = gLang == 'ms' ? _msMonths : _enMonths;
+  return '${d.day} ${months[d.month - 1]}';
+}
+
+/// 12-hour clock, e.g. "3:45 PM".
+String humanTime(DateTime d) {
+  final h = d.hour % 12 == 0 ? 12 : d.hour % 12;
+  final m = d.minute.toString().padLeft(2, '0');
+  final ampm = d.hour < 12 ? 'AM' : 'PM';
+  return '$h:$m $ampm';
+}
+
+String humanDateTime(DateTime d) => '${humanDate(d)} · ${humanTime(d)}';
+
 const Map<String, Map<String, String>> kTr = {
   'tipConsume': {'en': 'Use / consume item', 'zh': '取用 / 消耗物品', 'ms': 'Guna / Habiskan barang'},
   'tipTheme': {'en': 'Toggle theme', 'zh': '切换主题', 'ms': 'Tukar tema'},
@@ -235,7 +265,7 @@ const Map<String, Map<String, String>> kTr = {
   'bodyCameraUnavailable': {'en': 'Allow Camera permission for Pantry in Settings, or just type the item name instead.', 'zh': '请在设置中允许 Pantry 的相机权限，或直接手动输入物品名称。', 'ms': 'Benarkan kebenaran Kamera untuk Pantry dalam Tetapan, atau taip sahaja nama barang.'},
   'snackRecognized': {'en': 'Recognized', 'zh': '已识别', 'ms': 'Dikenal pasti'},
   'snackLookingUp': {'en': 'New barcode — looking it up…', 'zh': '新条码 —— 正在查询…', 'ms': 'Kod bar baharu — sedang mencari…'},
-  'snackNotFoundOnline': {'en': "Not found online — type the item name, we'll remember this barcode next time.", 'zh': '未在线上找到 —— 请输入物品名称，我们会记住这个条码以便下次使用。', 'ms': 'Tidak dijumpai dalam talian — taip nama barang, kami akan ingat kod bar ini pada masa akan datang.'},
+  'snackNotFoundOnline': {'en': "New barcode — type the item name and we'll remember it next time.", 'zh': '新条码 —— 请输入物品名称，我们会记住它以便下次使用。', 'ms': 'Kod bar baharu — taip nama barang dan kami akan ingatnya pada masa akan datang.'},
   'snackBackupCopied': {'en': 'Backup copied to clipboard — paste it somewhere safe.', 'zh': '备份已复制到剪贴板 —— 请粘贴到安全的地方保存。', 'ms': 'Sandaran disalin ke papan keratan — tampal di tempat yang selamat.'},
   'snackImported': {'en': 'Imported', 'zh': '已导入', 'ms': 'Diimport'},
   'snackInvalidBackup': {'en': "That doesn't look like valid backup JSON", 'zh': '这似乎不是有效的备份 JSON', 'ms': 'Itu bukan JSON sandaran yang sah'},
@@ -296,6 +326,17 @@ const Map<String, Map<String, String>> kTr = {
   'btnDeleteForever': {'en': 'Delete forever', 'zh': '永久删除', 'ms': 'Padam selamanya'},
   'snackRestored': {'en': 'Restored', 'zh': '已恢复', 'ms': 'Dipulihkan'},
   'tipFlash': {'en': 'Flash', 'zh': '闪光灯', 'ms': 'Lampu kilat'},
+  'btnScanLabel': {'en': 'Scan label text instead', 'zh': '改为扫描包装文字', 'ms': 'Imbas teks label sebagai ganti'},
+  'titleOcrConfirm': {'en': 'Confirm item name', 'zh': '确认物品名称', 'ms': 'Sahkan nama barang'},
+  'ocrBodyHint': {'en': 'Edit if this isn\'t quite right, then confirm.', 'zh': '如果不完全正确，请编辑后确认。', 'ms': 'Edit jika tidak tepat, kemudian sahkan.'},
+  'ocrNoTextFound': {'en': 'Couldn\'t read any text — try again with the label closer and well-lit.', 'zh': '未能识别任何文字 —— 请在光线充足的情况下将标签靠近相机再试一次。', 'ms': 'Tidak dapat membaca sebarang teks — cuba lagi dengan label lebih dekat dan pencahayaan yang baik.'},
+  'btnUseThisName': {'en': 'Use this name', 'zh': '使用此名称', 'ms': 'Guna nama ini'},
+  'titleNewBarcode': {'en': 'New barcode', 'zh': '新条码', 'ms': 'Kod bar baharu'},
+  'bodyNewBarcode': {'en': "We haven't seen this barcode before. Scan the product label and we'll try to read the name off it, or you can just type it in yourself.", 'zh': '我们尚未见过此条码。可以扫描产品标签尝试自动读取名称，或者您也可以自行输入。', 'ms': 'Kami belum pernah melihat kod bar ini. Imbas label produk dan kami akan cuba membaca namanya, atau anda boleh menaipnya sendiri.'},
+  'snackReadingLabel': {'en': 'Reading label…', 'zh': '正在读取标签…', 'ms': 'Membaca label…'},
+  'lblBarcode': {'en': 'Barcode', 'zh': '条码', 'ms': 'Kod bar'},
+  'noBarcode': {'en': 'No barcode linked', 'zh': '未关联条码', 'ms': 'Tiada kod bar dipautkan'},
+  'btnScanBarcode': {'en': 'Scan barcode', 'zh': '扫描条码', 'ms': 'Imbas kod bar'},
 };
 
 class PantryItem {
@@ -769,6 +810,7 @@ class _HomePageState extends State<HomePage> {
   String? _addBarcode;
   String _addUnit = kUnits.first;
   String? _addPhotoPath;
+  DateTime _addPurchaseDate = DateTime.now();
   String _filterCat = '';
   String _filterLoc = '';
   String _sortBy = 'cat';
@@ -919,9 +961,9 @@ class _HomePageState extends State<HomePage> {
     if (v != null) { setState(() => _currency = v); _persist(); }
   }
 
-  void _logPurchase(PantryItem it) {
+  void _logPurchase(PantryItem it, {DateTime? date}) {
     _purchases.insert(0, PurchaseRecord(
-      id: _uid(), name: it.name, cat: it.cat, qty: it.qty, price: it.price, date: DateTime.now(), exp: it.exp, unit: it.unit,
+      id: _uid(), name: it.name, cat: it.cat, qty: it.qty, price: it.price, date: date ?? DateTime.now(), exp: it.exp, unit: it.unit,
     ));
   }
 
@@ -948,7 +990,7 @@ class _HomePageState extends State<HomePage> {
         unit: _addUnit, photoPath: _addPhotoPath,
       );
       _items.insert(0, it);
-      _logPurchase(it);
+      _logPurchase(it, date: _addPurchaseDate);
       if (it.barcode != null && it.barcode!.isNotEmpty) _barcodeMap[it.barcode!] = name;
       if (!_history.contains(name)) _history.insert(0, name);
       _nameCtrl.clear();
@@ -958,6 +1000,7 @@ class _HomePageState extends State<HomePage> {
       _addStatus = 'ok';
       _addBarcode = null;
       _addPhotoPath = null;
+      _addPurchaseDate = DateTime.now();
     });
     _persist();
     FocusScope.of(context).unfocus();
@@ -1106,14 +1149,15 @@ class _HomePageState extends State<HomePage> {
   }
 
   // ---- barcode ----
-  Future<void> _scan() async {
-    // Ask for camera permission up front so the scanner never opens to a crash.
+  /// Requests camera permission (with a guided dialog if it's missing) and
+  /// opens the barcode scanner, returning the raw code or null if cancelled.
+  Future<String?> _scanRaw() async {
     var status = await Permission.camera.status;
     if (!status.isGranted) {
       status = await Permission.camera.request();
     }
     if (!status.isGranted) {
-      if (!mounted) return;
+      if (!mounted) return null;
       final goSettings = await showDialog<bool>(
         context: context,
         builder: (_) => AlertDialog(
@@ -1128,12 +1172,14 @@ class _HomePageState extends State<HomePage> {
         ),
       );
       if (goSettings == true) await openAppSettings();
-      return;
+      return null;
     }
-    if (!mounted) return;
-    final code = await Navigator.of(context).push<String>(
-      MaterialPageRoute(builder: (_) => const ScanPage()),
-    );
+    if (!mounted) return null;
+    return Navigator.of(context).push<String>(MaterialPageRoute(builder: (_) => const ScanPage()));
+  }
+
+  Future<void> _scan() async {
+    final code = await _scanRaw();
     if (code == null || !mounted) return;
     _addBarcode = code;
 
@@ -1146,20 +1192,103 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
+    // Unrecognized barcode — online lookup for local/regional products was
+    // unreliable and slow, so ask the user how they'd like to proceed
+    // instead of silently jumping into the camera.
     _nameCtrl.clear();
     setState(() {});
-    _snack(tr('snackLookingUp'));
+    if (!mounted) return;
+    final proceed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(tr('titleNewBarcode')),
+        content: Text(tr('bodyNewBarcode')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(tr('btnTypeManually'))),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(tr('btnScanLabel'))),
+        ],
+      ),
+    );
+    if (proceed == true) {
+      await _tryOcrFallback();
+    } else if (mounted) {
+      _snack(tr('snackNotFoundOnline'));
+    }
+  }
+
+  /// Fallback for barcodes no online database recognizes: snap a photo of the
+  /// product label and read the text on-device with ML Kit (no internet
+  /// needed), then let the user confirm/edit the guessed name.
+  Future<void> _tryOcrFallback() async {
+    final path = await _capturePhoto();
+    if (path == null) {
+      if (mounted) _snack(tr('snackNotFoundOnline'));
+      return;
+    }
+    if (!mounted) return;
+
+    // Guidance: OCR processing isn't instant — show what's happening rather
+    // than leaving the screen looking idle after the camera closes.
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          content: Row(children: [
+            const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.5)),
+            const SizedBox(width: 16),
+            Expanded(child: Text(tr('snackReadingLabel'))),
+          ]),
+        ),
+      ),
+    );
+
+    final recognizer = TextRecognizer(script: TextRecognitionScript.latin);
+    String guess = '';
     try {
-      final r = await http.get(Uri.parse(
-        'https://world.openfoodfacts.org/api/v2/product/$code.json?fields=product_name,generic_name'));
-      final j = jsonDecode(r.body);
-      if (j['status'] == 1 && j['product'] != null) {
-        final p = j['product'];
-        final nm = ((p['product_name'] ?? p['generic_name'] ?? '') as String).trim();
-        if (nm.isNotEmpty && mounted) { _nameCtrl.text = nm; setState(() {}); return; }
+      final result = await recognizer.processImage(InputImage.fromFilePath(path));
+      // Heuristic: product names are usually a short, non-numeric line near
+      // the top of the label — pick the first line that isn't mostly digits.
+      for (final block in result.blocks) {
+        for (final line in block.lines) {
+          final t = line.text.trim();
+          final digitCount = t.replaceAll(RegExp(r'[^0-9]'), '').length;
+          if (t.length >= 3 && digitCount < t.length / 2) { guess = t; break; }
+        }
+        if (guess.isNotEmpty) break;
       }
-    } catch (_) {}
-    if (mounted) _snack(tr('snackNotFoundOnline'));
+    } catch (_) {
+    } finally {
+      recognizer.close();
+    }
+    if (mounted) Navigator.of(context).pop(); // close the reading-label dialog
+    if (!mounted) return;
+    if (guess.isEmpty) {
+      _snack(tr('ocrNoTextFound'));
+      return;
+    }
+    final ctrl = TextEditingController(text: guess);
+    final confirmed = await showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(tr('titleOcrConfirm')),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(tr('ocrBodyHint'), style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor)),
+          const SizedBox(height: 10),
+          TextField(controller: ctrl, autofocus: true, decoration: InputDecoration(labelText: tr('lblItem'))),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('btnCancel'))),
+          FilledButton(onPressed: () => Navigator.pop(context, ctrl.text.trim()), child: Text(tr('btnUseThisName'))),
+        ],
+      ),
+    );
+    if (confirmed != null && confirmed.isNotEmpty && mounted) {
+      _nameCtrl.text = confirmed;
+      _addPhotoPath = path;
+      setState(() {});
+    }
   }
 
   // ---- consume / deduct ----
@@ -1701,6 +1830,7 @@ class _HomePageState extends State<HomePage> {
     String status = it.status;
     String loc = it.location;
     DateTime? exp = it.exp;
+    String? barcode = it.barcode;
 
     await showModalBottomSheet(
       context: context,
@@ -1814,7 +1944,7 @@ class _HomePageState extends State<HomePage> {
                       icon: const Icon(Icons.event),
                       label: Text(exp == null
                           ? tr('lblExpiryOptional')
-                          : '${tr('expPrefix')} ${exp!.toIso8601String().substring(0, 10)}'),
+                          : '${tr('expPrefix')} ${humanDate(exp!)}'),
                     ),
                   ),
                   if (exp != null)
@@ -1826,6 +1956,27 @@ class _HomePageState extends State<HomePage> {
                   icon: const Icon(Icons.camera_alt_outlined),
                   label: Text(it.photoPath == null ? tr('btnAddPhoto') : tr('btnRetakePhoto')),
                 ),
+                const SizedBox(height: 10),
+                Row(children: [
+                  Expanded(
+                    child: Text(
+                      barcode == null || barcode!.isEmpty ? tr('noBarcode') : '${tr('lblBarcode')}: $barcode',
+                      style: TextStyle(fontSize: 13, color: Theme.of(context).hintColor),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final code = await _scanRaw();
+                      if (code != null) setSheet(() => barcode = code);
+                    },
+                    icon: const Icon(Icons.qr_code_scanner, size: 18),
+                    label: Text(tr('btnScanBarcode')),
+                  ),
+                  if (barcode != null && barcode!.isNotEmpty)
+                    IconButton(onPressed: () => setSheet(() => barcode = null), icon: const Icon(Icons.clear)),
+                ]),
                 const SizedBox(height: 10),
                 TextButton.icon(
                   onPressed: () {
@@ -1857,7 +2008,9 @@ class _HomePageState extends State<HomePage> {
                           it.price = double.tryParse(priceCtrl.text) ?? 0;
                           it.location = loc;
                           it.exp = exp;
+                          it.barcode = barcode;
                           it.touch();
+                          if (barcode != null && barcode!.isNotEmpty) _barcodeMap[barcode!] = it.name;
                         });
                         _persist();
                         Navigator.of(context).pop();
@@ -2044,11 +2197,48 @@ class _HomePageState extends State<HomePage> {
             icon: const Icon(Icons.event),
             label: Text(_addExp == null
                 ? tr('lblExpiryOptional')
-                : '${tr('expPrefix')} ${_addExp!.toIso8601String().substring(0, 10)}'),
+                : '${tr('expPrefix')} ${humanDate(_addExp!)}'),
           ),
         ),
         if (_addExp != null)
           IconButton(onPressed: () => setSheet(() => _addExp = null), icon: const Icon(Icons.clear)),
+      ]),
+      const SizedBox(height: 10),
+      Text(tr('purchasedPrefix'), style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor)),
+      const SizedBox(height: 4),
+      Row(children: [
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () async {
+              final d = await showDatePicker(
+                context: context,
+                initialDate: _addPurchaseDate,
+                firstDate: DateTime(_addPurchaseDate.year - 3),
+                lastDate: DateTime(_addPurchaseDate.year + 1),
+              );
+              if (d != null) {
+                setSheet(() => _addPurchaseDate = DateTime(
+                    d.year, d.month, d.day, _addPurchaseDate.hour, _addPurchaseDate.minute));
+              }
+            },
+            icon: const Icon(Icons.event),
+            label: Text(humanDate(_addPurchaseDate)),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () async {
+              final t = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(_addPurchaseDate));
+              if (t != null) {
+                setSheet(() => _addPurchaseDate = DateTime(
+                    _addPurchaseDate.year, _addPurchaseDate.month, _addPurchaseDate.day, t.hour, t.minute));
+              }
+            },
+            icon: const Icon(Icons.access_time),
+            label: Text(humanTime(_addPurchaseDate)),
+          ),
+        ),
       ]),
       const SizedBox(height: 14),
       FilledButton.icon(
@@ -2221,7 +2411,7 @@ class _HomePageState extends State<HomePage> {
     if (n < 0) { t = 'expired ${-n}d'; c = kDanger; }
     else if (n == 0) { t = 'today'; c = kDanger; }
     else if (n <= kSoonDays) { t = '${n}d left'; c = kPurple; }
-    else { t = '${tr('expPrefix')} ${it.exp!.toIso8601String().substring(5, 10)}'; c = Theme.of(context).hintColor; }
+    else { t = humanDateShort(it.exp!); c = Theme.of(context).hintColor; }
     return Container(
       margin: const EdgeInsets.only(left: 6),
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
@@ -2573,9 +2763,6 @@ class PurchaseHistoryPage extends StatefulWidget {
 }
 
 class _PurchaseHistoryPageState extends State<PurchaseHistoryPage> {
-  static String _ds(DateTime d) =>
-      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-
   Future<void> _editDialog(PurchaseRecord r) async {
     final nameCtrl = TextEditingController(text: r.name);
     final qtyCtrl = TextEditingController(text: '${r.qty}');
@@ -2639,6 +2826,8 @@ class _PurchaseHistoryPageState extends State<PurchaseHistoryPage> {
                 decoration: InputDecoration(labelText: tr('lblPrice'), prefixText: '${widget.currencySymbol} '),
               ),
               const SizedBox(height: 10),
+              Text(tr('purchasedPrefix'), style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor)),
+              const SizedBox(height: 4),
               Row(children: [
                 Expanded(
                   child: OutlinedButton.icon(
@@ -2647,10 +2836,21 @@ class _PurchaseHistoryPageState extends State<PurchaseHistoryPage> {
                         context: context, initialDate: date,
                         firstDate: DateTime(date.year - 3), lastDate: DateTime(date.year + 1),
                       );
-                      if (d != null) setSheet(() => date = d);
+                      if (d != null) setSheet(() => date = DateTime(d.year, d.month, d.day, date.hour, date.minute));
                     },
                     icon: const Icon(Icons.event),
-                    label: Text('${tr('purchasedPrefix')} ${_ds(date)}'),
+                    label: Text(humanDate(date)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      final t = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(date));
+                      if (t != null) setSheet(() => date = DateTime(date.year, date.month, date.day, t.hour, t.minute));
+                    },
+                    icon: const Icon(Icons.access_time),
+                    label: Text(humanTime(date)),
                   ),
                 ),
               ]),
@@ -2667,7 +2867,7 @@ class _PurchaseHistoryPageState extends State<PurchaseHistoryPage> {
                       if (d != null) setSheet(() => exp = d);
                     },
                     icon: const Icon(Icons.event_busy),
-                    label: Text(exp == null ? tr('lblExpiryOptional') : '${tr('expPrefix')} ${_ds(exp!)}'),
+                    label: Text(exp == null ? tr('lblExpiryOptional') : '${tr('expPrefix')} ${humanDate(exp!)}'),
                   ),
                 ),
                 if (exp != null)
@@ -2715,7 +2915,7 @@ class _PurchaseHistoryPageState extends State<PurchaseHistoryPage> {
               itemCount: purchases.length,
               itemBuilder: (_, i) {
                 final r = purchases[i];
-                final expPart = r.exp != null ? ' · ${tr('expPrefix')} ${_ds(r.exp!)}' : '';
+                final expPart = r.exp != null ? ' · ${tr('expPrefix')} ${humanDate(r.exp!)}' : '';
                 return Dismissible(
                   key: ValueKey(r.id),
                   direction: DismissDirection.endToStart,
@@ -2735,7 +2935,7 @@ class _PurchaseHistoryPageState extends State<PurchaseHistoryPage> {
                     child: ListTile(
                       onTap: () => _editDialog(r),
                       title: Text(r.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-                      subtitle: Text('${catLabel(r.cat)} · ${tr('lblQty').toLowerCase()} ${r.qty}${r.unit.isEmpty ? '' : ' ${r.unit}'} · ${_ds(r.date)}$expPart'),
+                      subtitle: Text('${catLabel(r.cat)} · ${tr('lblQty').toLowerCase()} ${r.qty}${r.unit.isEmpty ? '' : ' ${r.unit}'} · ${humanDateTime(r.date)}$expPart'),
                       trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                         if (r.price > 0)
                           Padding(
@@ -2999,7 +3199,7 @@ class _SheetsSyncPageState extends State<SheetsSyncPage> {
                       ),
                     ]),
                     const SizedBox(height: 10),
-                    Text('${tr('sheetsLastSync')}: ${_lastSync == null ? tr('sheetsNever') : _lastSync.toString().substring(0, 16)}',
+                    Text('${tr('sheetsLastSync')}: ${_lastSync == null ? tr('sheetsNever') : humanDateTime(_lastSync!)}',
                         style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor)),
                   ],
                 ]),
