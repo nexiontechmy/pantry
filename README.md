@@ -11,7 +11,7 @@ A household groceries and inventory tracker for Android, built with Flutter. Sca
 ## Features
 
 - **Custom branded UI** — bottom navigation (Home / Locations / Shopping) with a floating add button, hero stat cards, and a color-coded category system, themed around the app's own logo
-- **Barcode scanning** — scan to add items, with a flashlight toggle for low light, automatic name lookup (Open Food Facts), and a local barcode→name memory that works offline and covers products the online database doesn't have
+- **Barcode scanning** — scan to add items, with a flashlight toggle for low light and a local barcode→name memory that recognizes repeat scans instantly and offline. An unrecognized barcode prompts an on-device OCR scan of the product label instead of an unreliable online lookup, view/edit/clear the linked barcode any time from an item's edit sheet
 - **Categories** — Produce, Dairy, Meat & Fish, Rice & Grains, Noodles & Pasta, Canned & Jarred Goods, Sauces & Condiments, Spices & Seasoning, Baking Supplies, Pantry, Frozen, Bakery, Drinks, Snacks, Toiletries, Cleaning Supplies, Personal Care, Household, Other — each with its own color and icon
 - **Units** — 23 options covering pcs, weight, volume, and common packaging (g, kg, ml, L, oz, lb, gallon, dozen, pack, box, bottle, can, jar, bag, carton, roll, tube, sachet, tablet, set, pair, bunch)
 - **Full item editing** — tap any item to edit every field (name, qty, unit, category, status, price, location, expiry, photo), not just add it once and be stuck
@@ -19,7 +19,7 @@ A household groceries and inventory tracker for Android, built with Flutter. Sca
 - **Storage locations** — tag items with freeform locations (e.g. "Kitchen Fridge", "Garage Freezer") and browse inventory by location
 - **Photos** — attach a photo to any item (stored locally on-device)
 - **Consume / deduct flow** — scan or tap an item to mark it used, without digging through a form
-- **Purchase history** — every addition is logged, and past entries can be edited or deleted if something was recorded wrong
+- **Purchase history** — every addition is logged with its purchase date and time (backdateable when adding), and past entries can be edited or deleted if something was recorded wrong
 - **Safer deletes** — swiping an item to delete requires confirmation, and a "Recently deleted" screen lets you restore (or permanently remove) anything soft-deleted
 - **Multi-currency** — MYR by default, switchable to USD, SGD, EUR, GBP, JPY, CNY, IDR, THB, AUD
 - **Multi-language UI** — English, Chinese (中文), and Malay (Bahasa Melayu)

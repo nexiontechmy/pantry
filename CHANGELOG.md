@@ -32,3 +32,10 @@ Dates below match the actual commit history (`git log`), oldest first.
 - Clamped system text scaling so an extreme accessibility font-size setting can't break the compact card layouts (this is what caused a category badge to render as "Toiletrie"/"s" split across two lines on one device)
 - Fixed barcode scanning: removed an overly narrow barcode-format allowlist that could silently fail to detect valid barcodes, and added a flashlight toggle for low light
 - Updated the README to match
+
+## 2026-08-27 — Humanized dates, purchase timing, and a smarter scan flow
+
+- Replaced raw ISO date strings ("2026-08-26") with human-readable, localized dates everywhere (add form, edit sheet, expiry chips, purchase history, Sheets last-synced)
+- Added time-of-purchase: purchase history now shows and lets you edit both date and time, and the add-item form has a "Purchased on" field (previously always silently used "now")
+- Replaced online barcode lookup (Open Food Facts / UPCItemDB) with an on-device OCR fallback — those databases had weak coverage for local/regional products, so an unrecognized barcode now prompts scanning the label instead, with a clear dialog explaining what's happening and a "reading label" indicator instead of the screen looking stuck
+- Added a barcode field to the item edit sheet (view, scan, or clear it directly), keeping the barcode-name memory in sync
